@@ -11,11 +11,13 @@
 
     <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-4xl mt-6 relative">
         
+        <!-- Luigi en la esquina -->
         <img src="imagen-esquina.png" alt="Decoración" class="absolute top-4 right-4 w-16 h-auto md:w-20 opacity-80 hover:opacity-100 transition-opacity">
 
         <h1 class="text-2xl font-bold text-gray-800 mb-2 text-center">Validador de Consolidados</h1>
-        <p class="text-gray-600 text-sm mb-6 text-center">Sube tu archivo de Excel. El sistema leerá los encabezados en la fila 4 y los datos desde la fila 5.</p>
+        <p class="text-gray-600 text-sm mb-6 text-center">Sube tu archivo de Excel. El sistema comprobará los datos y te permitirá guardarlos en el histórico.</p>
 
+        <!-- Zona de arrastrar archivo -->
         <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
             <input type="file" id="file-input" accept=".xlsx, .xls" class="hidden">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,19 +26,28 @@
             <p class="mt-2 text-sm text-gray-600 font-medium">Arrastra tu archivo Excel aquí o <span class="text-blue-600 underline">búscalo en tu equipo</span></p>
         </div>
 
+        <!-- Resultados -->
         <div id="result-container" class="mt-6 hidden">
-            <div id="success-message" class="hidden bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg mb-4">
-                <p class="font-semibold text-center">🎉 ¡Archivo validado con éxito! Toda la información es correcta.</p>
+            <!-- Éxito -->
+            <div id="success-message" class="hidden bg-green-50 border border-green-200 text-green-800 p-4 rounded-lg mb-4 text-center">
+                <p class="font-semibold text-lg">🎉 ¡Archivo validado con éxito! Toda la información es correcta.</p>
+                
+                <!-- BOTÓN MÁGICO PARA GUARDAR EN LA NUBE -->
+                <button id="btn-enviar" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all cursor-pointer w-full md:w-auto">
+                    🚀 Guardar estas filas en el Histórico Maestro
+                </button>
             </div>
 
+            <!-- Error -->
             <div id="error-message" class="hidden bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-4">
-                <p class="font-semibold mb-2">❌ Se encontraron errores en la estructura o datos. Por favor, corrígelos:</p>
+                <p class="font-semibold mb-2">❌ Se encontraron errores. Por favor, corrígelos:</p>
                 <ul id="error-list" class="list-disc list-inside text-sm space-y-1 text-red-700 max-h-40 overflow-y-auto"></ul>
             </div>
 
+            <!-- Vista Previa -->
             <div id="preview-container" class="hidden mt-6">
-                <h3 class="text-lg font-bold text-gray-700 mb-3">📋 Vista Previa de Datos Cargados</h3>
-                <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-sm max-h-80">
+                <h3 class="text-lg font-bold text-gray-700 mb-3">📋 Filas detectadas para enviar:</h3>
+                <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-sm max-h-60">
                     <table class="min-w-full divide-y divide-gray-200 text-sm text-left">
                         <thead id="table-head" class="bg-gray-100 text-gray-700 font-semibold uppercase tracking-wider"></thead>
                         <tbody id="table-body" class="divide-y divide-gray-200 bg-white text-gray-600"></tbody>
@@ -47,6 +58,12 @@
     </div>
 
     <script>
+        // Enlace de Google Apps Script integrado directamente
+        const URL_HISTORICO_NUBE = "https://script.google.com/macros/s/AKfycbyPgoM_RO7YbQWU-OsvFmnVLvXA_FOHSEGzPWFfRnDSNDriAKxfOWt6wLj4bFM5ML1p/exec";
+
+        const COLUMNAS_REQUERIDAS = ["Fecha de Despacho"]; 
+        let datosListosParaEnviar = [];
+
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const resultContainer = document.getElementById('result-container');
@@ -56,16 +73,13 @@
         const previewContainer = document.getElementById('preview-container');
         const tableHead = document.getElementById('table-head');
         const tableBody = document.getElementById('table-body');
-
-        // REQUISITO CORRECTO: Nombre exacto de la columna en la fila 4
-        const COLUMNAS_REQUERIDAS = ["Fecha de Despacho"]; 
+        const btnEnviar = document.getElementById('btn-enviar');
 
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('bg-blue-50'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-blue-50'));
         dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('bg-blue-50');
+            e.preventDefault(); dropZone.classList.remove('bg-blue-50');
             if (e.dataTransfer.files.length > 0) procesarArchivo(e.dataTransfer.files[0]);
         });
         fileInput.addEventListener('change', (e) => {
@@ -78,8 +92,6 @@
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
                 const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // range: 3 le dice que la fila 4 de Excel contiene los encabezados reales
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { range: 3, defval: "" });
                 validarYMostrar(jsonData);
             };
@@ -92,39 +104,31 @@
             successMessage.classList.add('hidden');
             errorMessage.classList.add('hidden');
             previewContainer.classList.add('hidden');
-            errorList.innerHTML = "";
-            tableHead.innerHTML = "";
-            tableBody.innerHTML = "";
+            errorList.innerHTML = ""; tableHead.innerHTML = ""; tableBody.innerHTML = "";
+            btnEnviar.disabled = false; btnEnviar.innerText = "🚀 Guardar estas filas en el Histórico Maestro";
 
             if (data.length === 0) {
                 errores.push("No se encontró información válida a partir de la fila 5.");
-                mostrarErrores(errores);
-                return;
+                mostrarErrores(errores); return;
             }
 
             const columnasEnExcel = Object.keys(data[0]);
             COLUMNAS_REQUERIDAS.forEach(col => {
-                if (!columnasEnExcel.includes(col)) {
-                    errores.push(`Error de Estructura: No se encontró la columna obligatoria **${col}** en la fila 4.`);
-                }
+                if (!columnasEnExcel.includes(col)) errores.push(`Error de Estructura: Falta la columna **${col}** en la fila 4.`);
             });
 
-            if (errores.length > 0) {
-                mostrarErrores(errores);
-                return;
-            }
+            if (errores.length > 0) { mostrarErrores(errores); return; }
 
             data.forEach((fila, index) => {
-                const numFilaReal = index + 5; // Index 0 es la fila 5 de datos en Excel
+                const numFilaReal = index + 5; 
                 let valorFecha = fila["Fecha de Despacho"] ? fila["Fecha de Despacho"].toString().trim() : "";
-                if (valorFecha === "") {
-                    errores.push(`Fila ${numFilaReal}: La celda de la columna 'Fecha de Despacho' está vacía.`);
-                }
+                if (valorFecha === "") errores.push(`Fila ${numFilaReal}: La columna 'Fecha de Despacho' está vacía.`);
             });
 
             if (errores.length > 0) {
                 mostrarErrores(errores);
             } else {
+                datosListosParaEnviar = data; 
                 successMessage.classList.remove('hidden');
                 construirTabla(columnasEnExcel, data);
             }
@@ -145,23 +149,44 @@
             columnas.forEach(col => {
                 const th = document.createElement('th');
                 th.className = "px-4 py-2 border-b border-gray-200 bg-gray-100 text-gray-700 font-semibold";
-                th.textContent = col;
-                trHead.appendChild(th);
+                th.textContent = col; trHead.appendChild(th);
             });
             tableHead.appendChild(trHead);
 
             filas.forEach(fila => {
                 const trBody = document.createElement('tr');
-                trBody.className = "hover:bg-gray-50 transition-colors";
+                trBody.className = "hover:bg-gray-50";
                 columnas.forEach(col => {
                     const td = document.createElement('td');
                     td.className = "px-4 py-2 border-b border-gray-200";
-                    td.textContent = fila[col];
-                    trBody.appendChild(td);
+                    td.textContent = fila[col]; trBody.appendChild(td);
                 });
                 tableBody.appendChild(trBody);
             });
         }
+
+        btnEnviar.addEventListener('click', () => {
+            btnEnviar.disabled = true;
+            btnEnviar.innerText = "⏳ Guardando datos en la nube, por favor espera...";
+
+            fetch(URL_HISTORICO_NUBE, {
+                method: "POST",
+                mode: "no-cors", 
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(datosListosParaEnviar)
+            })
+            .then(() => {
+                alert("¡Éxito total! Las filas de datos han sido acumuladas en tu Histórico Maestro.");
+                btnEnviar.innerText = "✅ ¡Guardado con éxito!";
+                btnEnviar.className = "mt-4 bg-gray-500 text-white font-bold py-3 px-6 rounded-lg shadow-md cursor-not-allowed w-full md:w-auto";
+            })
+            .catch(error => {
+                console.error(error);
+                alert("Hubo un error al intentar conectar con la nube.");
+                btnEnviar.disabled = false;
+                btnEnviar.innerText = "🚀 Intentar guardar otra vez";
+            });
+        });
     </script>
 </body>
 </html>
