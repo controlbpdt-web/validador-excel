@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Validador Profesional</title>
+    <title>Validador de Consolidados</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -19,7 +19,7 @@
         <div id="result-container" class="mt-6 hidden">
             <div id="success-section" class="hidden bg-green-50 p-6 rounded-lg border border-green-200 text-center mb-4">
                 <p class="text-green-800 font-bold text-xl">✅ ¡Archivo validado!</p>
-                <div id="resumen-texto" class="text-left mt-4 text-gray-700 bg-white p-4 rounded border"></div>
+                <div id="resumen-texto" class="text-left mt-4 text-gray-700 bg-white p-4 rounded border shadow-sm"></div>
                 <button id="btn-enviar" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg w-full md:w-auto">
                     🚀 Guardar en el Histórico Maestro
                 </button>
@@ -36,11 +36,11 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN: Ajusta los nombres de las columnas a los de tu Excel
+        // CONFIGURACIÓN: Nombres exactos de columnas (Fila 4 del Excel)
         const REGLAS = {
-            "Columna B": ["OLT CONSUMOS", "OLT MASIVO", "OLT CLAVES"],
+            "Tipo de OLT": ["OLT CONSUMOS", "OLT MASIVO", "OLT CLAVES"], // Cambia "Tipo de OLT" por el nombre real de tu columna B
         };
-        const COLUMNA_RECUENTO = "Columna L"; // Ajusta a tu columna real
+        const COL_LINEA = "Línea"; // Nombre exacto de tu columna L
 
         const URL_GAS = "https://script.google.com/macros/s/AKfycbwVuNAzSxA6xtUbP6wG0njyB_7Pm1qvkGNg_QDS7S8YKALqquZl4NhXosaCqfrb-uA/exec";
         let datosListosParaEnviar = [];
@@ -75,15 +75,15 @@
                 document.getElementById('error-section').classList.remove('hidden');
                 document.getElementById('error-table-body').innerHTML = errores.map(e => `<tr><td class="p-2 border font-bold">${e.fila}</td><td class="p-2 border">${e.msg}</td></tr>`).join('');
             } else {
-                let counts = { "BIOAS": 0, "OMPHARMA": 0, "ELEA PERU": 0 };
-                validos.forEach(f => { if(counts.hasOwnProperty(f[COLUMNA_RECUENTO])) counts[f[COLUMNA_RECUENTO]]++; });
+                let counts = { "BIOPAS": 0, "OMPHARMA": 0, "ELEA PERU": 0 };
+                validos.forEach(f => { if(counts.hasOwnProperty(f[COL_LINEA])) counts[f[COL_LINEA]]++; });
                 
                 document.getElementById('success-section').classList.remove('hidden');
                 document.getElementById('resumen-texto').innerHTML = `
                     <p>✅ <b>Total filas válidas:</b> ${validos.length}</p>
-                    <p class="mt-2 font-bold">📊 Recuento:</p>
+                    <p class="mt-2 font-bold">📊 Recuento por Línea:</p>
                     <ul class="list-disc ml-6">
-                        <li>BIOAS: ${counts["BIOAS"]}</li>
+                        <li>BIOPAS: ${counts["BIOPAS"]}</li>
                         <li>OMPHARMA: ${counts["OMPHARMA"]}</li>
                         <li>ELEA PERU: ${counts["ELEA PERU"]}</li>
                     </ul>`;
@@ -92,8 +92,10 @@
         }
 
         document.getElementById('btn-enviar').onclick = () => {
+            const btn = document.getElementById('btn-enviar');
+            btn.innerText = "⏳ Guardando..."; btn.disabled = true;
             fetch(URL_GAS, { method: "POST", mode: "no-cors", body: JSON.stringify(datosListosParaEnviar) })
-            .then(() => alert("¡Datos guardados con éxito!"));
+            .then(() => { alert("¡Datos guardados!"); btn.innerText = "✅ Guardado"; });
         };
     </script>
 </body>
