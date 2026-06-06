@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Validador de Consolidados</title>
+    <title>Validador Profesional</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -17,29 +17,24 @@
         </div>
 
         <div id="result-container" class="mt-6 hidden">
-            
             <div id="success-section" class="hidden bg-green-50 p-6 rounded-lg border border-green-200 text-center mb-4">
-                <p class="text-green-800 font-bold text-xl">✅ ¡Archivo validado con éxito!</p>
+                <p class="text-green-800 font-bold text-xl">✅ ¡Archivo validado!</p>
                 <p id="resumen-texto" class="text-green-700 mt-2 font-medium text-lg"></p>
-                <button id="btn-enviar" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg">
-                    🚀 Guardar en el Histórico Maestro
-                </button>
+                <button id="btn-enviar" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg">🚀 Guardar en el Histórico Maestro</button>
             </div>
 
             <div id="error-section" class="hidden bg-red-50 p-6 rounded-lg border border-red-200">
-                <h3 class="text-red-700 font-bold mb-4 text-lg">❌ Errores detectados (No se puede subir):</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left text-red-800 border-collapse">
-                        <thead class="bg-red-100"><tr><th class="p-2 border">Fila</th><th class="p-2 border">Detalle del Error</th></tr></thead>
-                        <tbody id="error-table-body"></tbody>
-                    </table>
-                </div>
+                <h3 class="text-red-700 font-bold mb-4">❌ Errores detectados (Corrige y vuelve a subir):</h3>
+                <table class="w-full text-sm text-left text-red-800 border-collapse">
+                    <thead class="bg-red-100"><tr><th class="p-2 border">Fila</th><th class="p-2 border">Detalle del Error</th></tr></thead>
+                    <tbody id="error-table-body"></tbody>
+                </table>
             </div>
         </div>
     </div>
 
     <script>
-        // CONFIGURACIÓN: Diccionario de términos permitidos
+        // CONFIGURACIÓN: Ajusta estos nombres exactos a los encabezados de tu Excel
         const REGLAS = {
             "Columna B": ["OLT CONSUMOS", "OLT MASIVO", "OLT CLAVES"],
         };
@@ -47,7 +42,6 @@
         const URL_GAS = "https://script.google.com/macros/s/AKfycbwVuNAzSxA6xtUbP6wG0njyB_7Pm1qvkGNg_QDS7S8YKALqquZl4NhXosaCqfrb-uA/exec";
         let datosListosParaEnviar = [];
 
-        // Lógica de archivo
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         dropZone.onclick = () => fileInput.click();
@@ -56,44 +50,48 @@
         function procesarArchivo(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const data = XLSX.utils.sheet_to_json(XLSX.read(e.target.result, {type: 'array'}), {range: 3, defval: ""});
-                validarYMostrar(data);
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                
+                // MEJORA: 'header: 0' y sin rango fijo para que detecte los datos automáticamente
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                console.log("Datos leídos:", jsonData); 
+                validarYMostrar(jsonData);
             };
             reader.readAsArrayBuffer(file);
         }
 
         function validarYMostrar(data) {
             let errores = [], validos = [];
-            
-            // Resetear vistas
             document.getElementById('result-container').classList.remove('hidden');
             document.getElementById('error-section').classList.add('hidden');
             document.getElementById('success-section').classList.add('hidden');
 
-            data.forEach((fila, i) => {
-                let numFila = i + 5;
+            // Fila de inicio: si tus datos empiezan en la fila 5, el índice 0 es la fila 1.
+            // Ajustamos el bucle para empezar desde la fila 4 (índice 4).
+            for (let i = 4; i < data.length; i++) {
+                let fila = data[i];
+                let numFilaReal = i + 1; // Fila real en el Excel
                 let filaErrores = [];
-                
+
                 for (let col in REGLAS) {
                     if (fila[col] && !REGLAS[col].includes(fila[col].trim())) {
-                        filaErrores.push(`Valor inválido en ${col}: "${fila[col]}"`);
+                        filaErrores.push(`Valor inválido en '${col}': "${fila[col]}"`);
                     }
                 }
                 
                 if (filaErrores.length > 0) {
-                    errores.push({ fila: numFila, msg: filaErrores.join(', ') });
+                    errores.push({ fila: numFilaReal, msg: filaErrores.join(', ') });
                 } else {
                     validos.push(fila);
                 }
-            });
+            }
 
-            // Lógica de visualización basada en errores
             if (errores.length > 0) {
-                // Mostrar errores y OCULTAR botón de enviar
                 document.getElementById('error-section').classList.remove('hidden');
                 document.getElementById('error-table-body').innerHTML = errores.map(e => `<tr><td class="p-2 border font-bold">${e.fila}</td><td class="p-2 border">${e.msg}</td></tr>`).join('');
             } else {
-                // Mostrar resumen y HABILITAR botón
                 document.getElementById('success-section').classList.remove('hidden');
                 document.getElementById('resumen-texto').innerText = `✅ Se han validado correctamente ${validos.length} filas.`;
                 datosListosParaEnviar = validos;
@@ -105,10 +103,7 @@
             btn.innerText = "⏳ Guardando...";
             btn.disabled = true;
             fetch(URL_GAS, { method: "POST", mode: "no-cors", body: JSON.stringify(datosListosParaEnviar) })
-            .then(() => {
-                alert("¡Datos guardados correctamente!");
-                btn.innerText = "✅ Guardado";
-            });
+            .then(() => { alert("¡Datos guardados correctamente!"); btn.innerText = "✅ Guardado"; });
         };
     </script>
 </body>
