@@ -10,11 +10,10 @@
 <body class="bg-gray-50 min-h-screen flex flex-col items-center justify-start p-6 font-sans">
 
     <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-4xl mt-6 relative">
-        
         <img src="imagen-esquina.png" alt="Decoración" class="absolute top-4 right-4 w-16 h-auto md:w-20 opacity-80 hover:opacity-100 transition-opacity">
 
         <h1 class="text-2xl font-bold text-gray-800 mb-2 text-center">Validador de Consolidados</h1>
-        <p class="text-gray-600 text-sm mb-6 text-center">Sube tu archivo de Excel. El sistema comprobará los datos y acumulará todas las columnas de la A a la T en el histórico.</p>
+        <p class="text-gray-600 text-sm mb-6 text-center">Sube tu archivo de Excel. El sistema comprobará los datos y acumulará todas las columnas en el histórico.</p>
 
         <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
             <input type="file" id="file-input" accept=".xlsx, .xls" class="hidden">
@@ -38,7 +37,7 @@
             </div>
 
             <div id="preview-container" class="hidden mt-6">
-                <h3 class="text-lg font-bold text-gray-700 mb-3">📋 Filas detectadas para enviar (Muestra todas las columnas):</h3>
+                <h3 class="text-lg font-bold text-gray-700 mb-3">📋 Filas detectadas para enviar (Todas las columnas A-T):</h3>
                 <div class="overflow-x-auto border border-gray-200 rounded-lg shadow-sm max-h-60">
                     <table class="min-w-full divide-y divide-gray-200 text-sm text-left">
                         <thead id="table-head" class="bg-gray-100 text-gray-700 font-semibold uppercase tracking-wider"></thead>
@@ -50,8 +49,8 @@
     </div>
 
     <script>
-        // Tu nuevo enlace de Apps Script integrado directamente
-        const URL_HISTORICO_NUBE = "https://script.google.com/macros/s/AKfycbypSaG242XkFSldSlel1htEB6ve3OvA0rVvmqSva8Vq8Xl-dfsm6nWN1zbPFc9ApVem/exec";
+        // Tu nuevo enlace de Apps Script integrado
+        const URL_HISTORICO_NUBE = "https://script.google.com/macros/s/AKfycbwVuNAzSxA6xtUbP6wG0njyB_7Pm1qvkGNg_QDS7S8YKALqquZl4NhXosaCqfrb-uA/exec";
 
         const COLUMNAS_REQUERIDAS = ["Fecha de Despacho"]; 
         let datosListosParaEnviar = [];
@@ -168,7 +167,7 @@
                 body: JSON.stringify(datosListosParaEnviar)
             })
             .then(() => {
-                alert("¡Éxito total! Las filas de datos han sido acumuladas en tu Histórico Maestro.");
+                alert("¡Éxito total! Las filas de datos han sido acumuladas.");
                 btnEnviar.innerText = "✅ ¡Guardado con éxito!";
                 btnEnviar.className = "mt-4 bg-gray-500 text-white font-bold py-3 px-6 rounded-lg shadow-md cursor-not-allowed w-full md:w-auto";
             })
