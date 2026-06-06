@@ -2,36 +2,38 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validador de Consolidados</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-6 font-sans">
+<body class="bg-gray-50 min-h-screen p-6">
 
     <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-4xl mx-auto">
         <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Validador de Consolidados</h1>
         
-        <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
+        <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500">
             <input type="file" id="file-input" class="hidden">
-            <p class="text-gray-600">Arrastra tu Excel aquí o haz clic para subir</p>
+            <p>Arrastra tu Excel aquí o haz clic para subir</p>
         </div>
 
         <div id="result-container" class="mt-6 hidden">
-            <div id="error-section" class="hidden bg-red-50 p-4 rounded-lg border border-red-200">
-                <h3 class="text-red-700 font-bold mb-2">❌ Errores encontrados:</h3>
-                <table class="w-full text-sm text-left text-red-800">
-                    <thead class="bg-red-100"><tr><th class="p-2">Fila</th><th class="p-2">Detalle del Error</th></tr></thead>
-                    <tbody id="error-table-body"></tbody>
-                </table>
-            </div>
-
-            <div id="success-section" class="hidden bg-green-50 p-6 rounded-lg border border-green-200 text-center">
+            
+            <div id="success-section" class="hidden bg-green-50 p-6 rounded-lg border border-green-200 text-center mb-4">
                 <p class="text-green-800 font-bold text-xl">✅ ¡Archivo validado con éxito!</p>
-                <p id="resumen-texto" class="text-green-700 mt-2 font-medium"></p>
-                <button id="btn-enviar" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg w-full md:w-auto">
+                <p id="resumen-texto" class="text-green-700 mt-2 font-medium text-lg"></p>
+                <button id="btn-enviar" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg">
                     🚀 Guardar en el Histórico Maestro
                 </button>
+            </div>
+
+            <div id="error-section" class="hidden bg-red-50 p-6 rounded-lg border border-red-200">
+                <h3 class="text-red-700 font-bold mb-4 text-lg">❌ Errores detectados (No se puede subir):</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-red-800 border-collapse">
+                        <thead class="bg-red-100"><tr><th class="p-2 border">Fila</th><th class="p-2 border">Detalle del Error</th></tr></thead>
+                        <tbody id="error-table-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -40,7 +42,6 @@
         // CONFIGURACIÓN: Diccionario de términos permitidos
         const REGLAS = {
             "Columna B": ["OLT CONSUMOS", "OLT MASIVO", "OLT CLAVES"],
-            // Agrega aquí más columnas si es necesario
         };
 
         const URL_GAS = "https://script.google.com/macros/s/AKfycbwVuNAzSxA6xtUbP6wG0njyB_7Pm1qvkGNg_QDS7S8YKALqquZl4NhXosaCqfrb-uA/exec";
@@ -63,33 +64,51 @@
 
         function validarYMostrar(data) {
             let errores = [], validos = [];
+            
+            // Resetear vistas
             document.getElementById('result-container').classList.remove('hidden');
             document.getElementById('error-section').classList.add('hidden');
             document.getElementById('success-section').classList.add('hidden');
 
             data.forEach((fila, i) => {
                 let numFila = i + 5;
+                let filaErrores = [];
+                
                 for (let col in REGLAS) {
                     if (fila[col] && !REGLAS[col].includes(fila[col].trim())) {
-                        errores.push({ fila: numFila, msg: `Valor inválido en ${col}: "${fila[col]}"` });
+                        filaErrores.push(`Valor inválido en ${col}: "${fila[col]}"`);
                     }
                 }
-                if (errores.length === 0) validos.push(fila);
+                
+                if (filaErrores.length > 0) {
+                    errores.push({ fila: numFila, msg: filaErrores.join(', ') });
+                } else {
+                    validos.push(fila);
+                }
             });
 
+            // Lógica de visualización basada en errores
             if (errores.length > 0) {
+                // Mostrar errores y OCULTAR botón de enviar
                 document.getElementById('error-section').classList.remove('hidden');
-                document.getElementById('error-table-body').innerHTML = errores.map(e => `<tr><td class="p-2 font-bold">${e.fila}</td><td class="p-2">${e.msg}</td></tr>`).join('');
+                document.getElementById('error-table-body').innerHTML = errores.map(e => `<tr><td class="p-2 border font-bold">${e.fila}</td><td class="p-2 border">${e.msg}</td></tr>`).join('');
             } else {
+                // Mostrar resumen y HABILITAR botón
                 document.getElementById('success-section').classList.remove('hidden');
-                document.getElementById('resumen-texto').innerText = `Se han detectado ${validos.length} filas listas para cargar.`;
+                document.getElementById('resumen-texto').innerText = `✅ Se han validado correctamente ${validos.length} filas.`;
                 datosListosParaEnviar = validos;
             }
         }
 
         document.getElementById('btn-enviar').onclick = () => {
+            const btn = document.getElementById('btn-enviar');
+            btn.innerText = "⏳ Guardando...";
+            btn.disabled = true;
             fetch(URL_GAS, { method: "POST", mode: "no-cors", body: JSON.stringify(datosListosParaEnviar) })
-            .then(() => alert("¡Datos guardados correctamente!"));
+            .then(() => {
+                alert("¡Datos guardados correctamente!");
+                btn.innerText = "✅ Guardado";
+            });
         };
     </script>
 </body>
