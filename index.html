@@ -146,7 +146,7 @@
 
         function procesarValidacion(filas) {
             let erroresBloqueantes = [];
-            let conteoVaciosPorColumna = {}; // NUEVO: Objeto para contar vacíos agrupados
+            let conteoVaciosPorColumna = {}; 
             let validosParaSubir = [];
             let conteoLineas = {};
             
@@ -168,8 +168,17 @@
                 let filaDatos = filas[i];
                 let filaVacia = true;
                 
+                // 1. Ignorar si la fila está completamente vacía
                 for(let celda of filaDatos) if(celda !== "") filaVacia = false;
                 if(filaVacia) continue;
+
+                // 2. NUEVA REGLA: Ignorar fila de Totales o pie de página
+                // Si Columna C (índice 2) y Columna E (índice 4) están vacías, saltamos la fila.
+                let valC = limpiarTexto(filaDatos[2]);
+                let valE = limpiarTexto(filaDatos[4]);
+                if (valC === "" && valE === "") {
+                    continue; 
+                }
 
                 let numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
@@ -196,7 +205,6 @@
                 // Si no hay errores estrictos, sumamos vacíos y preparamos JSON
                 if (!erroresEnEstaFila) {
                     
-                    // NUEVA LÓGICA: Contar vacíos agrupando por columna
                     COLS_ADVERTENCIA.forEach(idx => {
                         if (String(filaDatos[idx]).trim() === "") {
                             let nombreCol = letraColumna(idx);
@@ -229,7 +237,6 @@
                 fileInput.value = ""; 
             } else {
                 
-                // NUEVA LÓGICA: Generar HTML agrupado para las advertencias
                 let htmlAdvertencias = "";
                 for (let col in conteoVaciosPorColumna) {
                     let cantidad = conteoVaciosPorColumna[col];
