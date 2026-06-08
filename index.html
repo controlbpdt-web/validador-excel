@@ -128,12 +128,11 @@
         // CONFIGURACIÓN DE SEGURIDAD Y REGLAS
         // ====================================================================
         
-        // 1. Agrega aquí los DNIs que tienen permitido subir archivos.
-        // Si quieres dar acceso a alguien más, solo pon su DNI entre comillas separado por comas.
+        // 1. LISTA BLANCA DE DNIs (Agrega o quita usuarios aquí)
         const DNIs_PERMITIDOS = [
+            "77355038", // <-- TU DNI (Acceso principal)
             "00000000", // DNI de prueba 1
-            "11111111", // DNI de prueba 2
-            "70123456"  // Cambia esto por los DNIs reales de tu equipo
+            "11111111"  // DNI de prueba 2
         ];
 
         let usuarioActualDNI = ""; // Almacenará el DNI del usuario logueado
@@ -156,14 +155,12 @@
         // ====================================================================
         const inputDNI = document.getElementById('dni-input');
         
-        // Función para validar el ingreso
         function procesarLogin() {
             const dni = inputDNI.value.trim();
             if (DNIs_PERMITIDOS.includes(dni)) {
                 usuarioActualDNI = dni;
                 document.getElementById('login-error').classList.add('hidden');
                 
-                // Efecto de transición
                 document.getElementById('login-container').classList.add('opacity-0', 'scale-95');
                 setTimeout(() => {
                     document.getElementById('login-container').classList.add('hidden');
@@ -171,7 +168,6 @@
                     app.classList.remove('hidden');
                     document.getElementById('user-display').innerText = usuarioActualDNI;
                     
-                    // Pequeña animación de entrada para la app
                     app.classList.add('opacity-0', 'translate-y-4');
                     setTimeout(() => {
                         app.classList.remove('opacity-0', 'translate-y-4');
@@ -180,7 +176,6 @@
 
             } else {
                 document.getElementById('login-error').classList.remove('hidden');
-                // Efecto de temblor en caso de error
                 inputDNI.classList.add('animate-bounce');
                 setTimeout(() => inputDNI.classList.remove('animate-bounce'), 500);
             }
@@ -188,7 +183,6 @@
 
         document.getElementById('btn-login').onclick = procesarLogin;
         
-        // Permitir login presionando "Enter"
         inputDNI.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -305,7 +299,7 @@
                         objetoLimpio[keyFinal] = filaDatos[idx] !== undefined ? filaDatos[idx] : "";
                     });
 
-                    // 🔥 INYECCIÓN DE AUDITORÍA (DNI y Fecha/Hora)
+                    // INYECCIÓN DE AUDITORÍA (DNI y Fecha/Hora)
                     objetoLimpio["DNI_Usuario"] = usuarioActualDNI;
                     objetoLimpio["Fecha_Hora_Subida"] = new Date().toLocaleString('es-PE', { hour12: false });
 
@@ -319,7 +313,7 @@
                 }
             }
 
-            // RENDERIZADO VISUAL (Igual que antes, con textos en blanco/altos contrastes)
+            // RENDERIZADO VISUAL
             if (erroresBloqueantes.length > 0) {
                 document.getElementById('error-section').classList.remove('hidden');
                 document.getElementById('error-table-body').innerHTML = erroresBloqueantes.map(e => `
