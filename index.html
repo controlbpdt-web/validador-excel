@@ -11,26 +11,33 @@
     <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-4xl mx-auto">
         <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Validador de Consolidados</h1>
         
-        <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500">
-            <input type="file" id="file-input" class="hidden">
-            <p>Arrastra tu Excel aquí o haz clic para subir</p>
+        <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
+            <input type="file" id="file-input" class="hidden" accept=".xlsx, .xls">
+            <p class="text-gray-600">Arrastra tu Excel aquí o haz clic para subir</p>
         </div>
 
         <div id="result-container" class="mt-6 hidden">
             <div id="success-section" class="hidden bg-green-50 p-6 rounded-lg border border-green-200 text-center mb-4">
                 <p class="text-green-800 font-bold text-xl">✅ ¡Archivo validado!</p>
                 <div id="resumen-texto" class="text-left mt-4 text-gray-700 bg-white p-4 rounded border shadow-sm"></div>
-                <button id="btn-enviar" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg w-full md:w-auto">
+                <button id="btn-enviar" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg w-full md:w-auto transition-colors">
                     🚀 Guardar en el Histórico Maestro
                 </button>
             </div>
 
             <div id="error-section" class="hidden bg-red-50 p-6 rounded-lg border border-red-200">
-                <h3 class="text-red-700 font-bold mb-4">❌ Errores detectados:</h3>
-                <table class="w-full text-sm text-left text-red-800 border-collapse">
-                    <thead class="bg-red-100"><tr><th class="p-2 border">Fila</th><th class="p-2 border">Detalle</th></tr></thead>
-                    <tbody id="error-table-body"></tbody>
-                </table>
+                <h3 class="text-red-700 font-bold mb-4 text-lg">❌ Errores detectados:</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-red-800 border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
+                        <thead class="bg-red-100">
+                            <tr>
+                                <th class="p-3 border-b-2 border-red-200 w-24">Fila Excel</th>
+                                <th class="p-3 border-b-2 border-red-200">Detalle del Error</th>
+                            </tr>
+                        </thead>
+                        <tbody id="error-table-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -38,22 +45,30 @@
     <script>
         // CONFIGURACIÓN: Nombres exactos de columnas (Fila 4 del Excel)
         const REGLAS = {
-            "Tipo de OLT": ["OLT CONSUMOS", "OLT MASIVO", "OLT CLAVES"], // Cambia "Tipo de OLT" por el nombre real de tu columna B
+            "Tipo de OLT": ["OLT CONSUMOS", "OLT MASIVO", "OLT CLAVES"], 
         };
-        const COL_LINEA = "Línea"; // Nombre exacto de tu columna L
+        const COL_LINEA = "Línea"; 
 
         const URL_GAS = "https://script.google.com/macros/s/AKfycbwVuNAzSxA6xtUbP6wG0njyB_7Pm1qvkGNg_QDS7S8YKALqquZl4NhXosaCqfrb-uA/exec";
         let datosListosParaEnviar = [];
 
         const fileInput = document.getElementById('file-input');
         document.getElementById('drop-zone').onclick = () => fileInput.click();
+        
         fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                validarYMostrar(XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" }));
+                const hoja = workbook.Sheets[workbook.SheetNames[0]];
+                
+                // MEJORA: range: 3 ignora las filas 1, 2 y 3. Usa la Fila 4 como llaves JSON.
+                const jsonDatos = XLSX.utils.sheet_to_json(hoja, { range: 3, defval: "" });
+                validarYMostrar(jsonDatos);
             };
-            reader.readAsArrayBuffer(e.target.files[0]);
+            reader.readAsArrayBuffer(file);
         };
 
         function validarYMostrar(data) {
@@ -62,40 +77,83 @@
             document.getElementById('error-section').classList.add('hidden');
             document.getElementById('success-section').classList.add('hidden');
 
-            for (let i = 4; i < data.length; i++) {
+            // MEJORA: El array arranca directamente en los datos (Fila 5 visual = índice 0)
+            for (let i = 0; i < data.length; i++) {
                 let fila = data[i];
                 let filaErrores = [];
+                
                 for (let col in REGLAS) {
-                    if (fila[col] && !REGLAS[col].includes(fila[col].trim())) filaErrores.push(`Error en ${col}`);
+                    if (fila[col] && !REGLAS[col].includes(fila[col].trim())) {
+                        filaErrores.push(`Valor inválido en columna "${col}"`);
+                    }
                 }
-                filaErrores.length > 0 ? errores.push({fila: i+1, msg: filaErrores.join(', ')}) : validos.push(fila);
+                
+                // MEJORA: Mapeo visual de la fila (i + 5)
+                if (filaErrores.length > 0) {
+                    errores.push({ fila: i + 5, msg: filaErrores.join(', ') });
+                } else {
+                    validos.push(fila);
+                }
             }
 
             if (errores.length > 0) {
                 document.getElementById('error-section').classList.remove('hidden');
-                document.getElementById('error-table-body').innerHTML = errores.map(e => `<tr><td class="p-2 border font-bold">${e.fila}</td><td class="p-2 border">${e.msg}</td></tr>`).join('');
+                document.getElementById('error-table-body').innerHTML = errores.map(e => `
+                    <tr class="border-b border-red-100 hover:bg-red-50">
+                        <td class="p-3 border-r border-red-100 font-bold text-center">${e.fila}</td>
+                        <td class="p-3">${e.msg}</td>
+                    </tr>
+                `).join('');
+                
+                // Limpiar input para permitir subir el mismo archivo corregido
+                fileInput.value = ""; 
             } else {
                 let counts = { "BIOPAS": 0, "OMPHARMA": 0, "ELEA PERU": 0 };
-                validos.forEach(f => { if(counts.hasOwnProperty(f[COL_LINEA])) counts[f[COL_LINEA]]++; });
+                validos.forEach(f => { 
+                    if(counts.hasOwnProperty(f[COL_LINEA])) counts[f[COL_LINEA]]++; 
+                });
                 
                 document.getElementById('success-section').classList.remove('hidden');
                 document.getElementById('resumen-texto').innerHTML = `
-                    <p>✅ <b>Total filas válidas:</b> ${validos.length}</p>
-                    <p class="mt-2 font-bold">📊 Recuento por Línea:</p>
-                    <ul class="list-disc ml-6">
-                        <li>BIOPAS: ${counts["BIOPAS"]}</li>
-                        <li>OMPHARMA: ${counts["OMPHARMA"]}</li>
-                        <li>ELEA PERU: ${counts["ELEA PERU"]}</li>
+                    <p>✅ <b>Total filas válidas a insertar:</b> ${validos.length}</p>
+                    <p class="mt-3 font-bold text-gray-800">📊 Recuento por Línea:</p>
+                    <ul class="list-none mt-2 space-y-1">
+                        <li class="bg-gray-50 px-3 py-1 rounded border border-gray-200"><b>BIOPAS:</b> ${counts["BIOPAS"]}</li>
+                        <li class="bg-gray-50 px-3 py-1 rounded border border-gray-200"><b>OMPHARMA:</b> ${counts["OMPHARMA"]}</li>
+                        <li class="bg-gray-50 px-3 py-1 rounded border border-gray-200"><b>ELEA PERU:</b> ${counts["ELEA PERU"]}</li>
                     </ul>`;
                 datosListosParaEnviar = validos;
             }
         }
 
         document.getElementById('btn-enviar').onclick = () => {
+            if (datosListosParaEnviar.length === 0) return;
+            
             const btn = document.getElementById('btn-enviar');
-            btn.innerText = "⏳ Guardando..."; btn.disabled = true;
+            btn.innerHTML = "⏳ Guardando en la nube..."; 
+            btn.disabled = true;
+            btn.classList.replace('bg-blue-600', 'bg-gray-400');
+            btn.classList.replace('hover:bg-blue-700', 'hover:bg-gray-400');
+
             fetch(URL_GAS, { method: "POST", mode: "no-cors", body: JSON.stringify(datosListosParaEnviar) })
-            .then(() => { alert("¡Datos guardados!"); btn.innerText = "✅ Guardado"; });
+            .then(() => { 
+                btn.innerHTML = "✅ ¡Guardado Exitosamente!";
+                btn.classList.replace('bg-gray-400', 'bg-green-600');
+                
+                // Opcional: Reiniciar la interfaz después de 3 segundos
+                setTimeout(() => {
+                    document.getElementById('result-container').classList.add('hidden');
+                    btn.innerHTML = "🚀 Guardar en el Histórico Maestro";
+                    btn.disabled = false;
+                    btn.classList.replace('bg-green-600', 'bg-blue-600');
+                    fileInput.value = "";
+                }, 3000);
+            }).catch(error => {
+                alert("Hubo un problema de conexión. Inténtalo de nuevo.");
+                btn.innerHTML = "🚀 Reintentar Guardado";
+                btn.disabled = false;
+                btn.classList.replace('bg-gray-400', 'bg-blue-600');
+            });
         };
     </script>
 </body>
