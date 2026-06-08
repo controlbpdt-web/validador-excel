@@ -79,18 +79,17 @@
 
     <script>
         // --- 1. DICCIONARIOS Y CONFIGURACIÓN DE REGLAS ---
-        // Se normalizan los textos para evitar errores por espacios extra o minúsculas.
         const URL_GAS = "https://script.google.com/macros/s/AKfycbzf3m7UltNhlbUB2ICJyJZEcY13RpeMu-0Xks-T0Ek5_uLnmI58TQ5B0ILHzv87f5a7/exec";
         
         const VALORES_PERMITIDOS = {
-            1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"], // Columna B (1). Agregado sin tilde por seguridad.
-            11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], // Columna L (11)
-            15: ["LIMA", "PROVINCIA"], // Columna P (15)
-            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO"], // Columna Q (16)
-            17: ["SECO", "REFRIGERADO"] // Columna R (17)
+            1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"], // Columna B (índice 1)
+            11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], // Columna L (índice 11)
+            15: ["LIMA", "PROVINCIA"], // Columna P (índice 15)
+            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO"], // Columna Q (índice 16)
+            17: ["SECO", "REFRIGERADO"] // Columna R (índice 17)
         };
 
-        // Columnas C,D,E,F,G,H,I,J,K, M,N,O, S (No bloquean, pero avisan si están vacías)
+        // Columnas que no bloquean, pero avisan si están vacías
         const COLS_ADVERTENCIA = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 18]; 
 
         let datosListosParaEnviar = [];
@@ -99,33 +98,55 @@
         const letraColumna = (index) => String.fromCharCode(65 + index);
         const limpiarTexto = (txt) => txt ? String(txt).trim().toUpperCase() : "";
         
-        // Validador robusto de fechas de Excel (números) o texto (dd/mm/yyyy)
         const esFechaValida = (valor) => {
             if (!valor) return false;
-            if (!isNaN(valor)) return true; // Es número de serie de Excel
-            const regexFecha = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/; // Es texto dd/mm/yyyy
+            if (!isNaN(valor)) return true; // Si es un número (formato Excel)
+            const regexFecha = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/; // Si es texto dd/mm/yyyy
             return regexFecha.test(String(valor).trim());
         };
 
         // --- 3. LÓGICA DE LECTURA E INTERFAZ ---
         const fileInput = document.getElementById('file-input');
-        document.getElementById('drop-zone').onclick = () => fileInput.click();
-        
-        fileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+        const dropZone = document.getElementById('drop-zone');
 
+        // Clic para abrir el explorador de archivos
+        dropZone.onclick = () => fileInput.click();
+
+        // Eventos para el Drag & Drop (Arrastrar y Soltar)
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                procesarArchivo(fileInput.files[0]);
+            }
+        });
+
+        // Evento al seleccionar archivo haciendo clic
+        fileInput.onchange = (e) => {
+            if (e.target.files[0]) procesarArchivo(e.target.files[0]);
+        };
+
+        function procesarArchivo(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                 const hoja = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // Leemos como Array de Arrays para atacar índices exactos (0=A, 1=B...)
                 const dataPlana = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "" });
                 procesarValidacion(dataPlana);
             };
             reader.readAsArrayBuffer(file);
-        };
+        }
 
         function procesarValidacion(filas) {
             let erroresBloqueantes = [];
@@ -134,7 +155,7 @@
             let conteoLineas = {};
             VALORES_PERMITIDOS[11].forEach(l => conteoLineas[l] = 0); // Inicializar contadores L
 
-            // Ocultar todos los paneles inicialmente
+            // Limpiar la interfaz
             document.getElementById('result-container').classList.remove('hidden');
             document.getElementById('error-section').classList.add('hidden');
             document.getElementById('warning-section').classList.add('hidden');
@@ -145,28 +166,26 @@
                 return;
             }
 
-            const encabezadosKeys = filas[3]; // Fila 4 contiene los nombres que usa el backend
+            const encabezadosKeys = filas[3]; // Fila 4 contiene las llaves originales para el JSON
 
-            // Iniciar lectura desde la fila 5 (índice 4 del array)
             for (let i = 4; i < filas.length; i++) {
                 let filaDatos = filas[i];
                 let filaVacia = true;
                 
-                // Si la fila está completamente vacía, la saltamos
+                // Omitir filas que estén totalmente en blanco
                 for(let celda of filaDatos) if(celda !== "") filaVacia = false;
                 if(filaVacia) continue;
 
                 let numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
 
-                // --- VALIDACIONES ESTRICTAS (ROJAS) ---
-                // Col A (0): Fecha obligatoria
+                // Validación de Fecha (Columna A)
                 if (!esFechaValida(filaDatos[0])) {
                     erroresBloqueantes.push({ fila: numFilaVisual, col: "A", msg: "Debe ser una fecha válida." });
                     erroresEnEstaFila = true;
                 }
 
-                // Cols B(1), L(11), P(15), Q(16), R(17)
+                // Validaciones Estrictas de Diccionario
                 Object.keys(VALORES_PERMITIDOS).forEach(idxStr => {
                     let idx = parseInt(idxStr);
                     let valor = limpiarTexto(filaDatos[idx]);
@@ -179,7 +198,7 @@
                     }
                 });
 
-                // --- VALIDACIONES DE ADVERTENCIA (AMARILLAS) ---
+                // Validaciones de Advertencia y Construcción de JSON
                 if (!erroresEnEstaFila) {
                     COLS_ADVERTENCIA.forEach(idx => {
                         if (String(filaDatos[idx]).trim() === "") {
@@ -187,24 +206,21 @@
                         }
                     });
 
-                    // Construir el Objeto final usando las llaves de la Fila 4 para el Backend
                     let objetoLimpio = {};
                     encabezadosKeys.forEach((nombreKey, idx) => {
-                        let keyFinal = nombreKey || `Columna_${letraColumna(idx)}`; // Respaldo si el Excel no tiene título en la Fila 4
+                        let keyFinal = nombreKey || `Columna_${letraColumna(idx)}`; 
                         objetoLimpio[keyFinal] = filaDatos[idx] !== undefined ? filaDatos[idx] : "";
                     });
                     
                     validosParaSubir.push(objetoLimpio);
                     
-                    // Sumar al contador de la columna L (índice 11)
                     let linea = limpiarTexto(filaDatos[11]);
                     if (conteoLineas[linea] !== undefined) conteoLineas[linea]++;
                 }
             }
 
-            // --- RENDERIZADO DE LA INTERFAZ ---
+            // Renderizado de Resultados
             if (erroresBloqueantes.length > 0) {
-                // Hay errores graves: Bloquear todo y mostrar tabla roja
                 document.getElementById('error-section').classList.remove('hidden');
                 document.getElementById('error-table-body').innerHTML = erroresBloqueantes.map(e => `
                     <tr class="hover:bg-red-50 transition-colors">
@@ -213,21 +229,16 @@
                         <td class="p-3 text-red-800">${e.msg}</td>
                     </tr>
                 `).join('');
-                fileInput.value = ""; // Limpiar input
+                fileInput.value = ""; 
             } else {
-                // Todo superó las reglas estrictas
-                
-                // 1. Mostrar Advertencias (si hay)
                 if (advertencias.length > 0) {
                     document.getElementById('warning-section').classList.remove('hidden');
                     document.getElementById('warning-list').innerHTML = advertencias.map(w => `<li>${w}</li>`).join('');
                 }
 
-                // 2. Armar y mostrar panel de Éxito
                 document.getElementById('success-section').classList.remove('hidden');
                 document.getElementById('total-filas').innerText = validosParaSubir.length;
                 
-                // Generar etiquetas de conteo de líneas
                 let htmlConteo = "";
                 for (const [linea, cantidad] of Object.entries(conteoLineas)) {
                     if (cantidad > 0) {
@@ -237,7 +248,9 @@
                         </div>`;
                     }
                 }
-                document.getElementById('conteo-lineas').innerHTML = htmlConteo || "<p class="text-slate-400 italic">No hay conteos disponibles.</p>";
+                
+                // Corrección de comillas aplicada aquí
+                document.getElementById('conteo-lineas').innerHTML = htmlConteo || '<p class="text-slate-400 italic">No hay conteos disponibles.</p>';
                 
                 datosListosParaEnviar = validosParaSubir;
             }
@@ -258,7 +271,6 @@
                 btn.innerHTML = "✅ ¡Datos Guardados Exitosamente!";
                 btn.classList.replace('bg-slate-400', 'bg-emerald-600');
                 
-                // Reinicio automático de la interfaz
                 setTimeout(() => {
                     document.getElementById('result-container').classList.add('hidden');
                     btn.innerHTML = "<span>🚀</span> Guardar en el Histórico Maestro";
