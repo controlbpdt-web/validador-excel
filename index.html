@@ -6,52 +6,108 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-6">
+<body class="bg-slate-100 min-h-screen p-6 font-sans">
 
-    <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-4xl mx-auto">
-        <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center">Validador de Consolidados</h1>
+    <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-5xl mx-auto border border-slate-200">
+        <h1 class="text-3xl font-extrabold text-slate-800 mb-2 text-center tracking-tight">Validador de Consolidados</h1>
+        <p class="text-center text-slate-500 mb-8">Sube tu archivo Excel para validar la estructura antes de enviarlo al histórico maestro.</p>
         
-        <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
+        <div id="drop-zone" class="border-2 border-dashed border-slate-300 bg-slate-50 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 group">
             <input type="file" id="file-input" class="hidden" accept=".xlsx, .xls">
-            <p class="text-gray-600">Arrastra tu Excel aquí o haz clic para subir</p>
+            <div class="text-4xl mb-3 group-hover:scale-110 transition-transform">📄</div>
+            <p class="text-slate-600 font-medium text-lg">Arrastra tu Excel aquí o <span class="text-blue-600 font-bold">haz clic para subir</span></p>
         </div>
 
-        <div id="result-container" class="mt-6 hidden">
-            <div id="success-section" class="hidden bg-green-50 p-6 rounded-lg border border-green-200 text-center mb-4">
-                <p class="text-green-800 font-bold text-xl">✅ ¡Archivo validado!</p>
-                <div id="resumen-texto" class="text-left mt-4 text-gray-700 bg-white p-4 rounded border shadow-sm"></div>
-                <button id="btn-enviar" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg w-full md:w-auto transition-colors">
-                    🚀 Guardar en el Histórico Maestro
-                </button>
-            </div>
-
-            <div id="error-section" class="hidden bg-red-50 p-6 rounded-lg border border-red-200">
-                <h3 class="text-red-700 font-bold mb-4 text-lg">❌ Errores detectados:</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left text-red-800 border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
-                        <thead class="bg-red-100">
+        <div id="result-container" class="mt-8 hidden space-y-6">
+            
+            <div id="error-section" class="hidden bg-red-50 p-6 rounded-xl border border-red-200 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-2xl">🚫</span>
+                    <h3 class="text-red-800 font-bold text-xl">Errores Críticos Detectados</h3>
+                </div>
+                <p class="text-red-600 mb-4 text-sm">El archivo no se puede subir. Corrige los siguientes errores en tu Excel y vuelve a intentarlo:</p>
+                <div class="max-h-64 overflow-y-auto rounded border border-red-200 bg-white">
+                    <table class="w-full text-sm text-left text-slate-700 border-collapse">
+                        <thead class="bg-red-100 sticky top-0">
                             <tr>
-                                <th class="p-3 border-b-2 border-red-200 w-24">Fila Excel</th>
+                                <th class="p-3 border-b-2 border-red-200 w-24 text-center">Fila</th>
+                                <th class="p-3 border-b-2 border-red-200 w-32 text-center">Columna</th>
                                 <th class="p-3 border-b-2 border-red-200">Detalle del Error</th>
                             </tr>
                         </thead>
-                        <tbody id="error-table-body"></tbody>
+                        <tbody id="error-table-body" class="divide-y divide-red-50"></tbody>
                     </table>
                 </div>
             </div>
+
+            <div id="warning-section" class="hidden bg-amber-50 p-6 rounded-xl border border-amber-200 shadow-sm">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-2xl">⚠️</span>
+                    <h3 class="text-amber-800 font-bold text-lg">Observaciones (Campos Vacíos)</h3>
+                </div>
+                <p class="text-amber-700 mb-3 text-sm">El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:</p>
+                <div class="max-h-40 overflow-y-auto bg-white p-4 rounded border border-amber-200 text-sm text-slate-600">
+                    <ul id="warning-list" class="list-disc pl-5 space-y-1"></ul>
+                </div>
+            </div>
+
+            <div id="success-section" class="hidden bg-emerald-50 p-6 rounded-xl border border-emerald-200 shadow-sm">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-2xl">✅</span>
+                    <h3 class="text-emerald-800 font-bold text-xl">¡Validación Estricta Superada!</h3>
+                </div>
+                
+                <div class="bg-white p-5 rounded-lg border border-emerald-100 shadow-sm mb-6 flex flex-col md:flex-row gap-8">
+                    <div class="flex-1">
+                        <p class="text-slate-600 text-sm uppercase font-bold tracking-wider mb-1">Filas Listas</p>
+                        <p id="total-filas" class="text-4xl font-black text-emerald-600">0</p>
+                    </div>
+                    <div class="flex-2 w-full">
+                        <p class="text-slate-600 text-sm uppercase font-bold tracking-wider mb-2">Desglose por Línea (Columna L)</p>
+                        <div id="conteo-lineas" class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-slate-700">
+                            </div>
+                    </div>
+                </div>
+
+                <button id="btn-enviar" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-lg">
+                    <span>🚀</span> Guardar en el Histórico Maestro
+                </button>
+            </div>
+            
         </div>
     </div>
 
     <script>
-        // CONFIGURACIÓN: Nombres exactos de columnas (Fila 4 del Excel)
-        const REGLAS = {
-            "Tipo de OLT": ["OLT CONSUMOS", "OLT MASIVO", "OLT CLAVES"], 
-        };
-        const COL_LINEA = "Línea"; 
-
+        // --- 1. DICCIONARIOS Y CONFIGURACIÓN DE REGLAS ---
+        // Se normalizan los textos para evitar errores por espacios extra o minúsculas.
         const URL_GAS = "https://script.google.com/macros/s/AKfycbzf3m7UltNhlbUB2ICJyJZEcY13RpeMu-0Xks-T0Ek5_uLnmI58TQ5B0ILHzv87f5a7/exec";
+        
+        const VALORES_PERMITIDOS = {
+            1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"], // Columna B (1). Agregado sin tilde por seguridad.
+            11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], // Columna L (11)
+            15: ["LIMA", "PROVINCIA"], // Columna P (15)
+            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO"], // Columna Q (16)
+            17: ["SECO", "REFRIGERADO"] // Columna R (17)
+        };
+
+        // Columnas C,D,E,F,G,H,I,J,K, M,N,O, S (No bloquean, pero avisan si están vacías)
+        const COLS_ADVERTENCIA = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 18]; 
+
         let datosListosParaEnviar = [];
 
+        // --- 2. FUNCIONES UTILITARIAS ---
+        const letraColumna = (index) => String.fromCharCode(65 + index);
+        const limpiarTexto = (txt) => txt ? String(txt).trim().toUpperCase() : "";
+        
+        // Validador robusto de fechas de Excel (números) o texto (dd/mm/yyyy)
+        const esFechaValida = (valor) => {
+            if (!valor) return false;
+            if (!isNaN(valor)) return true; // Es número de serie de Excel
+            const regexFecha = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/; // Es texto dd/mm/yyyy
+            return regexFecha.test(String(valor).trim());
+        };
+
+        // --- 3. LÓGICA DE LECTURA E INTERFAZ ---
         const fileInput = document.getElementById('file-input');
         document.getElementById('drop-zone').onclick = () => fileInput.click();
         
@@ -64,95 +120,158 @@
                 const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                 const hoja = workbook.Sheets[workbook.SheetNames[0]];
                 
-                // MEJORA: range: 3 ignora las filas 1, 2 y 3. Usa la Fila 4 como llaves JSON.
-                const jsonDatos = XLSX.utils.sheet_to_json(hoja, { range: 3, defval: "" });
-                validarYMostrar(jsonDatos);
+                // Leemos como Array de Arrays para atacar índices exactos (0=A, 1=B...)
+                const dataPlana = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "" });
+                procesarValidacion(dataPlana);
             };
             reader.readAsArrayBuffer(file);
         };
 
-        function validarYMostrar(data) {
-            let errores = [], validos = [];
+        function procesarValidacion(filas) {
+            let erroresBloqueantes = [];
+            let advertencias = [];
+            let validosParaSubir = [];
+            let conteoLineas = {};
+            VALORES_PERMITIDOS[11].forEach(l => conteoLineas[l] = 0); // Inicializar contadores L
+
+            // Ocultar todos los paneles inicialmente
             document.getElementById('result-container').classList.remove('hidden');
             document.getElementById('error-section').classList.add('hidden');
+            document.getElementById('warning-section').classList.add('hidden');
             document.getElementById('success-section').classList.add('hidden');
 
-            // MEJORA: El array arranca directamente en los datos (Fila 5 visual = índice 0)
-            for (let i = 0; i < data.length; i++) {
-                let fila = data[i];
-                let filaErrores = [];
+            if (filas.length < 5) {
+                alert("El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
+                return;
+            }
+
+            const encabezadosKeys = filas[3]; // Fila 4 contiene los nombres que usa el backend
+
+            // Iniciar lectura desde la fila 5 (índice 4 del array)
+            for (let i = 4; i < filas.length; i++) {
+                let filaDatos = filas[i];
+                let filaVacia = true;
                 
-                for (let col in REGLAS) {
-                    if (fila[col] && !REGLAS[col].includes(fila[col].trim())) {
-                        filaErrores.push(`Valor inválido en columna "${col}"`);
-                    }
+                // Si la fila está completamente vacía, la saltamos
+                for(let celda of filaDatos) if(celda !== "") filaVacia = false;
+                if(filaVacia) continue;
+
+                let numFilaVisual = i + 1;
+                let erroresEnEstaFila = false;
+
+                // --- VALIDACIONES ESTRICTAS (ROJAS) ---
+                // Col A (0): Fecha obligatoria
+                if (!esFechaValida(filaDatos[0])) {
+                    erroresBloqueantes.push({ fila: numFilaVisual, col: "A", msg: "Debe ser una fecha válida." });
+                    erroresEnEstaFila = true;
                 }
-                
-                // MEJORA: Mapeo visual de la fila (i + 5)
-                if (filaErrores.length > 0) {
-                    errores.push({ fila: i + 5, msg: filaErrores.join(', ') });
-                } else {
-                    validos.push(fila);
+
+                // Cols B(1), L(11), P(15), Q(16), R(17)
+                Object.keys(VALORES_PERMITIDOS).forEach(idxStr => {
+                    let idx = parseInt(idxStr);
+                    let valor = limpiarTexto(filaDatos[idx]);
+                    if (!VALORES_PERMITIDOS[idx].includes(valor)) {
+                        erroresBloqueantes.push({ 
+                            fila: numFilaVisual, col: letraColumna(idx), 
+                            msg: valor === "" ? "Celda vacía, valor obligatorio requerido." : `Valor no permitido: "${filaDatos[idx]}"` 
+                        });
+                        erroresEnEstaFila = true;
+                    }
+                });
+
+                // --- VALIDACIONES DE ADVERTENCIA (AMARILLAS) ---
+                if (!erroresEnEstaFila) {
+                    COLS_ADVERTENCIA.forEach(idx => {
+                        if (String(filaDatos[idx]).trim() === "") {
+                            advertencias.push(`Fila ${numFilaVisual}: Columna ${letraColumna(idx)} está vacía.`);
+                        }
+                    });
+
+                    // Construir el Objeto final usando las llaves de la Fila 4 para el Backend
+                    let objetoLimpio = {};
+                    encabezadosKeys.forEach((nombreKey, idx) => {
+                        let keyFinal = nombreKey || `Columna_${letraColumna(idx)}`; // Respaldo si el Excel no tiene título en la Fila 4
+                        objetoLimpio[keyFinal] = filaDatos[idx] !== undefined ? filaDatos[idx] : "";
+                    });
+                    
+                    validosParaSubir.push(objetoLimpio);
+                    
+                    // Sumar al contador de la columna L (índice 11)
+                    let linea = limpiarTexto(filaDatos[11]);
+                    if (conteoLineas[linea] !== undefined) conteoLineas[linea]++;
                 }
             }
 
-            if (errores.length > 0) {
+            // --- RENDERIZADO DE LA INTERFAZ ---
+            if (erroresBloqueantes.length > 0) {
+                // Hay errores graves: Bloquear todo y mostrar tabla roja
                 document.getElementById('error-section').classList.remove('hidden');
-                document.getElementById('error-table-body').innerHTML = errores.map(e => `
-                    <tr class="border-b border-red-100 hover:bg-red-50">
-                        <td class="p-3 border-r border-red-100 font-bold text-center">${e.fila}</td>
-                        <td class="p-3">${e.msg}</td>
+                document.getElementById('error-table-body').innerHTML = erroresBloqueantes.map(e => `
+                    <tr class="hover:bg-red-50 transition-colors">
+                        <td class="p-3 border-r border-red-100 font-black text-center text-red-600">${e.fila}</td>
+                        <td class="p-3 border-r border-red-100 font-bold text-center bg-red-50">${e.col}</td>
+                        <td class="p-3 text-red-800">${e.msg}</td>
                     </tr>
                 `).join('');
-                
-                // Limpiar input para permitir subir el mismo archivo corregido
-                fileInput.value = ""; 
+                fileInput.value = ""; // Limpiar input
             } else {
-                let counts = { "BIOPAS": 0, "OMPHARMA": 0, "ELEA PERU": 0 };
-                validos.forEach(f => { 
-                    if(counts.hasOwnProperty(f[COL_LINEA])) counts[f[COL_LINEA]]++; 
-                });
+                // Todo superó las reglas estrictas
                 
+                // 1. Mostrar Advertencias (si hay)
+                if (advertencias.length > 0) {
+                    document.getElementById('warning-section').classList.remove('hidden');
+                    document.getElementById('warning-list').innerHTML = advertencias.map(w => `<li>${w}</li>`).join('');
+                }
+
+                // 2. Armar y mostrar panel de Éxito
                 document.getElementById('success-section').classList.remove('hidden');
-                document.getElementById('resumen-texto').innerHTML = `
-                    <p>✅ <b>Total filas válidas a insertar:</b> ${validos.length}</p>
-                    <p class="mt-3 font-bold text-gray-800">📊 Recuento por Línea:</p>
-                    <ul class="list-none mt-2 space-y-1">
-                        <li class="bg-gray-50 px-3 py-1 rounded border border-gray-200"><b>BIOPAS:</b> ${counts["BIOPAS"]}</li>
-                        <li class="bg-gray-50 px-3 py-1 rounded border border-gray-200"><b>OMPHARMA:</b> ${counts["OMPHARMA"]}</li>
-                        <li class="bg-gray-50 px-3 py-1 rounded border border-gray-200"><b>ELEA PERU:</b> ${counts["ELEA PERU"]}</li>
-                    </ul>`;
-                datosListosParaEnviar = validos;
+                document.getElementById('total-filas').innerText = validosParaSubir.length;
+                
+                // Generar etiquetas de conteo de líneas
+                let htmlConteo = "";
+                for (const [linea, cantidad] of Object.entries(conteoLineas)) {
+                    if (cantidad > 0) {
+                        htmlConteo += `<div class="bg-slate-50 border border-slate-200 px-3 py-2 rounded flex justify-between items-center">
+                            <span class="font-bold">${linea}</span>
+                            <span class="bg-emerald-100 text-emerald-800 py-1 px-2 rounded-full text-xs font-black">${cantidad}</span>
+                        </div>`;
+                    }
+                }
+                document.getElementById('conteo-lineas').innerHTML = htmlConteo || "<p class="text-slate-400 italic">No hay conteos disponibles.</p>";
+                
+                datosListosParaEnviar = validosParaSubir;
             }
         }
 
+        // --- 4. ENVÍO A GOOGLE APPS SCRIPT ---
         document.getElementById('btn-enviar').onclick = () => {
             if (datosListosParaEnviar.length === 0) return;
             
             const btn = document.getElementById('btn-enviar');
-            btn.innerHTML = "⏳ Guardando en la nube..."; 
+            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Guardando en la nube...`; 
             btn.disabled = true;
-            btn.classList.replace('bg-blue-600', 'bg-gray-400');
-            btn.classList.replace('hover:bg-blue-700', 'hover:bg-gray-400');
+            btn.classList.replace('bg-blue-600', 'bg-slate-400');
+            btn.classList.replace('hover:bg-blue-700', 'hover:bg-slate-500');
 
             fetch(URL_GAS, { method: "POST", mode: "no-cors", body: JSON.stringify(datosListosParaEnviar) })
             .then(() => { 
-                btn.innerHTML = "✅ ¡Guardado Exitosamente!";
-                btn.classList.replace('bg-gray-400', 'bg-green-600');
+                btn.innerHTML = "✅ ¡Datos Guardados Exitosamente!";
+                btn.classList.replace('bg-slate-400', 'bg-emerald-600');
                 
-                // Opcional: Reiniciar la interfaz después de 3 segundos
+                // Reinicio automático de la interfaz
                 setTimeout(() => {
                     document.getElementById('result-container').classList.add('hidden');
-                    btn.innerHTML = "🚀 Guardar en el Histórico Maestro";
+                    btn.innerHTML = "<span>🚀</span> Guardar en el Histórico Maestro";
                     btn.disabled = false;
-                    btn.classList.replace('bg-green-600', 'bg-blue-600');
+                    btn.classList.replace('bg-emerald-600', 'bg-blue-600');
                     fileInput.value = "";
-                }, 3000);
+                    datosListosParaEnviar = [];
+                }, 4000);
             }).catch(error => {
                 alert("Hubo un problema de conexión. Inténtalo de nuevo.");
-                btn.innerHTML = "🚀 Reintentar Guardado";
+                btn.innerHTML = "<span>🔄</span> Reintentar Guardado";
                 btn.disabled = false;
-                btn.classList.replace('bg-gray-400', 'bg-blue-600');
+                btn.classList.replace('bg-slate-400', 'bg-red-600');
             });
         };
     </script>
