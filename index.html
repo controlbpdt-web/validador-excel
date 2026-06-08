@@ -47,7 +47,7 @@
                 </div>
                 <p class="text-amber-700 mb-3 text-sm">El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:</p>
                 <div class="max-h-40 overflow-y-auto bg-white p-4 rounded border border-amber-200 text-sm text-slate-600">
-                    <ul id="warning-list" class="list-disc pl-5 space-y-1"></ul>
+                    <ul id="warning-list" class="list-disc pl-5 space-y-2"></ul>
                 </div>
             </div>
 
@@ -82,14 +82,13 @@
         const URL_GAS = "https://script.google.com/macros/s/AKfycbzf3m7UltNhlbUB2ICJyJZEcY13RpeMu-0Xks-T0Ek5_uLnmI58TQ5B0ILHzv87f5a7/exec";
         
         const VALORES_PERMITIDOS = {
-            1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"], // Columna B (índice 1)
-            11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], // Columna L (índice 11)
-            15: ["LIMA", "PROVINCIA"], // Columna P (índice 15)
-            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO"], // Columna Q (índice 16)
-            17: ["SECO", "REFRIGERADO"] // Columna R (índice 17)
+            1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"], 
+            11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], 
+            15: ["LIMA", "PROVINCIA"], 
+            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO"], 
+            17: ["SECO", "REFRIGERADO"] 
         };
 
-        // Columnas que no bloquean, pero avisan si están vacías
         const COLS_ADVERTENCIA = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 18]; 
 
         let datosListosParaEnviar = [];
@@ -100,8 +99,8 @@
         
         const esFechaValida = (valor) => {
             if (!valor) return false;
-            if (!isNaN(valor)) return true; // Si es un número (formato Excel)
-            const regexFecha = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/; // Si es texto dd/mm/yyyy
+            if (!isNaN(valor)) return true; 
+            const regexFecha = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/; 
             return regexFecha.test(String(valor).trim());
         };
 
@@ -109,10 +108,8 @@
         const fileInput = document.getElementById('file-input');
         const dropZone = document.getElementById('drop-zone');
 
-        // Clic para abrir el explorador de archivos
         dropZone.onclick = () => fileInput.click();
 
-        // Eventos para el Drag & Drop (Arrastrar y Soltar)
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('border-blue-500', 'bg-blue-50');
@@ -132,7 +129,6 @@
             }
         });
 
-        // Evento al seleccionar archivo haciendo clic
         fileInput.onchange = (e) => {
             if (e.target.files[0]) procesarArchivo(e.target.files[0]);
         };
@@ -150,12 +146,12 @@
 
         function procesarValidacion(filas) {
             let erroresBloqueantes = [];
-            let advertencias = [];
+            let conteoVaciosPorColumna = {}; // NUEVO: Objeto para contar vacíos agrupados
             let validosParaSubir = [];
             let conteoLineas = {};
-            VALORES_PERMITIDOS[11].forEach(l => conteoLineas[l] = 0); // Inicializar contadores L
+            
+            VALORES_PERMITIDOS[11].forEach(l => conteoLineas[l] = 0); 
 
-            // Limpiar la interfaz
             document.getElementById('result-container').classList.remove('hidden');
             document.getElementById('error-section').classList.add('hidden');
             document.getElementById('warning-section').classList.add('hidden');
@@ -166,26 +162,25 @@
                 return;
             }
 
-            const encabezadosKeys = filas[3]; // Fila 4 contiene las llaves originales para el JSON
+            const encabezadosKeys = filas[3]; 
 
             for (let i = 4; i < filas.length; i++) {
                 let filaDatos = filas[i];
                 let filaVacia = true;
                 
-                // Omitir filas que estén totalmente en blanco
                 for(let celda of filaDatos) if(celda !== "") filaVacia = false;
                 if(filaVacia) continue;
 
                 let numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
 
-                // Validación de Fecha (Columna A)
+                // Validar Fecha
                 if (!esFechaValida(filaDatos[0])) {
                     erroresBloqueantes.push({ fila: numFilaVisual, col: "A", msg: "Debe ser una fecha válida." });
                     erroresEnEstaFila = true;
                 }
 
-                // Validaciones Estrictas de Diccionario
+                // Validar Diccionarios
                 Object.keys(VALORES_PERMITIDOS).forEach(idxStr => {
                     let idx = parseInt(idxStr);
                     let valor = limpiarTexto(filaDatos[idx]);
@@ -198,11 +193,14 @@
                     }
                 });
 
-                // Validaciones de Advertencia y Construcción de JSON
+                // Si no hay errores estrictos, sumamos vacíos y preparamos JSON
                 if (!erroresEnEstaFila) {
+                    
+                    // NUEVA LÓGICA: Contar vacíos agrupando por columna
                     COLS_ADVERTENCIA.forEach(idx => {
                         if (String(filaDatos[idx]).trim() === "") {
-                            advertencias.push(`Fila ${numFilaVisual}: Columna ${letraColumna(idx)} está vacía.`);
+                            let nombreCol = letraColumna(idx);
+                            conteoVaciosPorColumna[nombreCol] = (conteoVaciosPorColumna[nombreCol] || 0) + 1;
                         }
                     });
 
@@ -219,7 +217,6 @@
                 }
             }
 
-            // Renderizado de Resultados
             if (erroresBloqueantes.length > 0) {
                 document.getElementById('error-section').classList.remove('hidden');
                 document.getElementById('error-table-body').innerHTML = erroresBloqueantes.map(e => `
@@ -231,9 +228,18 @@
                 `).join('');
                 fileInput.value = ""; 
             } else {
-                if (advertencias.length > 0) {
+                
+                // NUEVA LÓGICA: Generar HTML agrupado para las advertencias
+                let htmlAdvertencias = "";
+                for (let col in conteoVaciosPorColumna) {
+                    let cantidad = conteoVaciosPorColumna[col];
+                    let palabra = cantidad === 1 ? "celda vacía" : "celdas vacías";
+                    htmlAdvertencias += `<li>Columna <strong>${col}</strong> tiene <span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-xs mx-1">${cantidad}</span> ${palabra}.</li>`;
+                }
+
+                if (htmlAdvertencias !== "") {
                     document.getElementById('warning-section').classList.remove('hidden');
-                    document.getElementById('warning-list').innerHTML = advertencias.map(w => `<li>${w}</li>`).join('');
+                    document.getElementById('warning-list').innerHTML = htmlAdvertencias;
                 }
 
                 document.getElementById('success-section').classList.remove('hidden');
@@ -249,7 +255,6 @@
                     }
                 }
                 
-                // Corrección de comillas aplicada aquí
                 document.getElementById('conteo-lineas').innerHTML = htmlConteo || '<p class="text-slate-400 italic">No hay conteos disponibles.</p>';
                 
                 datosListosParaEnviar = validosParaSubir;
