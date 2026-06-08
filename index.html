@@ -11,6 +11,9 @@
         ::-webkit-scrollbar-track { background: #000000; }
         ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+        
+        /* Rotación para que el progreso del SVG empiece desde arriba */
+        .svg-circle { transform: rotate(-90deg); transform-origin: 50% 50%; }
     </style>
 </head>
 <body class="bg-black min-h-screen p-6 font-sans text-zinc-100 selection:bg-blue-500/30 flex flex-col justify-center">
@@ -99,18 +102,32 @@
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    
                     <div class="bg-black/60 p-5 rounded-xl border border-emerald-500/20 flex flex-col justify-center items-center">
                         <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-1">Filas Listas</p>
                         <p id="total-filas" class="text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">0</p>
                     </div>
 
-                    <div class="bg-black/60 p-5 rounded-xl border border-blue-500/20 md:col-span-2">
-                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3 border-b border-zinc-700 pb-2">Despacho</p>
-                        <div id="conteo-despacho" class="flex flex-wrap gap-3 text-sm"></div>
+                    <div class="bg-black/60 p-5 rounded-xl border border-blue-500/20 flex flex-col justify-center items-center">
+                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3">Calidad de Datos</p>
+                        <div class="w-24 h-24 relative flex justify-center items-center">
+                            <svg viewBox="0 0 36 36" class="w-full h-full svg-circle">
+                                <path class="text-zinc-800" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path id="score-circle" class="transition-all duration-1000 ease-out" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" fill="none" stroke="currentColor" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                            <div class="absolute inset-0 flex justify-center items-center">
+                                <span id="score-text" class="text-xl font-black text-white">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-black/60 p-5 rounded-xl border border-indigo-500/20 flex flex-col justify-center items-center md:items-start">
+                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3 border-b border-zinc-700 pb-2 w-full text-center md:text-left">Despacho</p>
+                        <div id="conteo-despacho" class="flex flex-wrap justify-center md:justify-start gap-3 text-sm w-full"></div>
                     </div>
                 </div>
 
-                <div class="bg-black/60 p-5 rounded-xl border border-indigo-500/20 mb-8">
+                <div class="bg-black/60 p-5 rounded-xl border border-zinc-700 mb-8">
                     <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-4 border-b border-zinc-700 pb-2">Líneas</p>
                     <div id="conteo-lineas" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"></div>
                 </div>
@@ -135,7 +152,7 @@
             "11111111"  // DNI de prueba 2
         ];
 
-        let usuarioActualDNI = ""; // Almacenará el DNI del usuario logueado
+        let usuarioActualDNI = ""; 
 
         const URL_GAS = "https://script.google.com/macros/s/AKfycbzf3m7UltNhlbUB2ICJyJZEcY13RpeMu-0Xks-T0Ek5_uLnmI58TQ5B0ILHzv87f5a7/exec";
         
@@ -238,8 +255,12 @@
             let validosParaSubir = [];
             let conteoLineas = {};
             let conteoDespacho = { "LIMA": 0, "PROVINCIA": 0 }; 
+            let totalCeldasVacias = 0; // NUEVO: Contador global de celdas vacías
             
             VALORES_PERMITIDOS[11].forEach(l => conteoLineas[l] = 0); 
+
+            // Reiniciar circulo a 0 por si sube otro archivo
+            document.getElementById('score-circle').setAttribute('stroke-dasharray', '0, 100');
 
             document.getElementById('result-container').classList.remove('hidden');
             document.getElementById('error-section').classList.add('hidden');
@@ -289,6 +310,7 @@
                         if (String(filaDatos[idx] || "").trim() === "") {
                             let nombreEncabezado = encabezadosKeys[idx] ? String(encabezadosKeys[idx]).trim() : `Columna ${letraColumna(idx)}`;
                             conteoVaciosPorColumna[nombreEncabezado] = (conteoVaciosPorColumna[nombreEncabezado] || 0) + 1;
+                            totalCeldasVacias++; // Sumar al total general de vacíos
                         }
                     });
 
@@ -326,6 +348,7 @@
                 fileInput.value = ""; 
             } else {
                 
+                // Generar Advertencias
                 let htmlAdvertencias = "";
                 for (let colReal in conteoVaciosPorColumna) {
                     let cantidad = conteoVaciosPorColumna[colReal];
@@ -338,6 +361,37 @@
                     document.getElementById('warning-list').innerHTML = htmlAdvertencias;
                 }
 
+                // CÁLCULO DE EFECTIVIDAD
+                let totalCeldasEsperadas = validosParaSubir.length * COLS_ADVERTENCIA.length;
+                let porcentaje = 100;
+                
+                if (totalCeldasEsperadas > 0) {
+                    porcentaje = ((1 - (totalCeldasVacias / totalCeldasEsperadas)) * 100);
+                }
+                
+                // Formateo del número
+                let displayPorcentaje = porcentaje === 100 ? "100" : Math.max(0, porcentaje).toFixed(1);
+                document.getElementById('score-text').textContent = `${displayPorcentaje}%`;
+
+                // Animación y Color del SVG
+                const scoreCircle = document.getElementById('score-circle');
+                // Limpiar colores anteriores
+                scoreCircle.classList.remove('text-emerald-500', 'text-amber-500', 'text-red-500', 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]', 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]', 'drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]');
+
+                if (porcentaje >= 99.5) {
+                    scoreCircle.classList.add('text-emerald-500', 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]');
+                } else if (porcentaje >= 80) {
+                    scoreCircle.classList.add('text-amber-500', 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]');
+                } else {
+                    scoreCircle.classList.add('text-red-500', 'drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]');
+                }
+
+                // Aplicar la animación del trazo
+                setTimeout(() => {
+                    scoreCircle.setAttribute('stroke-dasharray', `${Math.max(0, porcentaje)}, 100`);
+                }, 150);
+
+                // Mostrar Panel Verde
                 document.getElementById('success-section').classList.remove('hidden');
                 document.getElementById('total-filas').innerText = validosParaSubir.length;
                 
