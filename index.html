@@ -13,79 +13,109 @@
         ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
     </style>
 </head>
-<body class="bg-black min-h-screen p-6 font-sans text-zinc-200 selection:bg-blue-500/30">
+<body class="bg-black min-h-screen p-6 font-sans text-zinc-100 selection:bg-blue-500/30 flex flex-col justify-center">
 
-    <div class="bg-zinc-950 p-8 rounded-2xl shadow-2xl shadow-black w-full max-w-5xl mx-auto border border-zinc-800/80 relative overflow-hidden">
-        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-32 bg-blue-600/5 blur-[120px] pointer-events-none"></div>
+    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-40 bg-blue-600/10 blur-[150px] pointer-events-none z-0"></div>
 
-        <h1 class="text-3xl font-extrabold text-white mb-2 text-center tracking-tight relative z-10">Validador de Consolidados</h1>
-        <p class="text-center text-zinc-500 mb-8 relative z-10">Sube tu archivo Excel para validar la estructura antes de enviarlo al histórico maestro.</p>
+    <div id="login-container" class="relative z-10 flex justify-center items-center w-full max-w-sm mx-auto transition-all duration-500">
+        <div class="bg-zinc-950 p-10 rounded-2xl shadow-2xl shadow-black border border-zinc-800/80 w-full text-center">
+            <div class="mb-6 flex justify-center">
+                <span class="text-6xl drop-shadow-[0_0_15px_rgba(37,99,235,0.3)]">🔐</span>
+            </div>
+            <h2 class="text-2xl font-extrabold text-white mb-2 tracking-tight">Acceso Restringido</h2>
+            <p class="text-zinc-400 text-sm mb-8">Ingresa tu número de DNI para acceder al validador.</p>
+            
+            <div class="text-left mb-6">
+                <label class="block text-white text-sm font-bold mb-2 ml-1">Número de DNI</label>
+                <input type="text" id="dni-input" maxlength="8" 
+                    class="w-full bg-black text-white border-2 border-zinc-700 rounded-xl p-4 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-center text-2xl tracking-[0.25em] font-bold" 
+                    placeholder="••••••••" 
+                    onkeypress="return event.charCode >= 48 && event.charCode <= 57" autocomplete="off">
+                <p id="login-error" class="text-red-400 text-sm mt-2 hidden font-medium text-center">❌ DNI no autorizado o inválido.</p>
+            </div>
+
+            <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] transition-all text-lg">
+                Ingresar al Sistema
+            </button>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden bg-zinc-950 p-8 rounded-2xl shadow-2xl shadow-black w-full max-w-5xl mx-auto border border-zinc-800/80 relative overflow-hidden transition-all duration-500 z-10">
         
-        <div id="drop-zone" class="border-2 border-dashed border-zinc-700 bg-black/60 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-zinc-900 transition-all duration-300 group relative z-10">
+        <div class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-zinc-800/80 pb-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
+                <p class="text-zinc-300 mt-1">Sube tu archivo Excel para validar la estructura antes de enviarlo.</p>
+            </div>
+            <div class="mt-4 md:mt-0 bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex items-center gap-2">
+                <span class="text-zinc-400 text-sm">Usuario actual:</span>
+                <span id="user-display" class="text-white font-bold tracking-wider"></span>
+            </div>
+        </div>
+        
+        <div id="drop-zone" class="border-2 border-dashed border-zinc-600 bg-black/60 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-zinc-900/80 transition-all duration-300 group">
             <input type="file" id="file-input" class="hidden" accept=".xlsx, .xls">
             <div class="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-lg opacity-80 group-hover:opacity-100">📄</div>
-            <p class="text-zinc-400 font-medium text-lg">Arrastra tu Excel aquí o <span class="text-blue-500 font-bold group-hover:text-blue-400 transition-colors">haz clic para subir</span></p>
+            <p class="text-white font-medium text-lg">Arrastra tu Excel aquí o <span class="text-blue-400 font-bold group-hover:text-blue-300 transition-colors">haz clic para subir</span></p>
         </div>
 
-        <div id="result-container" class="mt-8 hidden space-y-6 relative z-10">
+        <div id="result-container" class="mt-8 hidden space-y-6">
             
-            <div id="error-section" class="hidden bg-red-950/20 p-6 rounded-xl border border-red-500/20 shadow-lg backdrop-blur-sm">
+            <div id="error-section" class="hidden bg-red-950/40 p-6 rounded-xl border border-red-500/30 shadow-lg">
                 <div class="flex items-center gap-3 mb-4">
-                    <span class="text-2xl drop-shadow-md">🚫</span>
-                    <h3 class="text-red-500 font-bold text-xl">Errores Críticos Detectados</h3>
+                    <span class="text-2xl">🚫</span>
+                    <h3 class="text-red-400 font-bold text-xl">Errores Críticos Detectados</h3>
                 </div>
-                <p class="text-red-400/80 mb-4 text-sm">El archivo no se puede subir. Corrige los siguientes errores en tu Excel y vuelve a intentarlo:</p>
-                <div class="max-h-64 overflow-y-auto rounded border border-red-500/10 bg-black/40">
-                    <table class="w-full text-sm text-left text-zinc-300 border-collapse">
-                        <thead class="bg-red-950/60 sticky top-0 backdrop-blur-md">
+                <p class="text-red-200 mb-4 text-sm font-medium">El archivo no se puede subir. Corrige los siguientes errores en tu Excel y vuelve a intentarlo:</p>
+                <div class="max-h-64 overflow-y-auto rounded border border-red-500/20 bg-black/60">
+                    <table class="w-full text-sm text-left text-white border-collapse">
+                        <thead class="bg-red-900/60 sticky top-0 backdrop-blur-md">
                             <tr>
-                                <th class="p-3 border-b border-red-500/10 w-24 text-center text-red-300">Fila</th>
-                                <th class="p-3 border-b border-red-500/10 w-32 text-center text-red-300">Columna</th>
-                                <th class="p-3 border-b border-red-500/10 text-red-300">Detalle del Error</th>
+                                <th class="p-3 border-b border-red-500/20 w-24 text-center text-red-100 font-bold">Fila</th>
+                                <th class="p-3 border-b border-red-500/20 w-32 text-center text-red-100 font-bold">Columna</th>
+                                <th class="p-3 border-b border-red-500/20 text-red-100 font-bold">Detalle del Error</th>
                             </tr>
                         </thead>
-                        <tbody id="error-table-body" class="divide-y divide-red-500/5"></tbody>
+                        <tbody id="error-table-body" class="divide-y divide-red-500/10"></tbody>
                     </table>
                 </div>
             </div>
 
-            <div id="warning-section" class="hidden bg-amber-950/20 p-6 rounded-xl border border-amber-500/20 shadow-lg backdrop-blur-sm">
+            <div id="warning-section" class="hidden bg-amber-950/40 p-6 rounded-xl border border-amber-500/30 shadow-lg">
                 <div class="flex items-center gap-3 mb-3">
-                    <span class="text-2xl drop-shadow-md">⚠️</span>
-                    <h3 class="text-amber-500 font-bold text-lg">Observaciones (Campos Vacíos)</h3>
+                    <span class="text-2xl">⚠️</span>
+                    <h3 class="text-amber-400 font-bold text-lg">Observaciones (Campos Vacíos)</h3>
                 </div>
-                <p class="text-amber-400/80 mb-3 text-sm">El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:</p>
-                <div class="max-h-40 overflow-y-auto bg-black/40 p-4 rounded border border-amber-500/10 text-sm">
-                    <ul id="warning-list" class="list-disc pl-5 space-y-2 text-amber-300/90 tracking-wide"></ul>
+                <p class="text-amber-100 mb-3 text-sm font-medium">El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:</p>
+                <div class="max-h-40 overflow-y-auto bg-black/60 p-4 rounded border border-amber-500/20 text-sm">
+                    <ul id="warning-list" class="list-disc pl-5 space-y-2 text-white tracking-wide"></ul>
                 </div>
             </div>
 
-            <div id="success-section" class="hidden bg-emerald-950/20 p-6 rounded-xl border border-emerald-500/20 shadow-lg backdrop-blur-sm">
+            <div id="success-section" class="hidden bg-emerald-950/30 p-6 rounded-xl border border-emerald-500/30 shadow-lg">
                 <div class="flex items-center gap-3 mb-6">
-                    <span class="text-2xl drop-shadow-md">✅</span>
+                    <span class="text-2xl">✅</span>
                     <h3 class="text-emerald-400 font-bold text-xl tracking-wide">¡Validación Estricta Superada!</h3>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div class="bg-black/50 p-5 rounded-xl border border-emerald-500/10 flex flex-col justify-center items-center">
-                        <p class="text-zinc-500 text-xs uppercase font-bold tracking-widest mb-1">Filas Listas</p>
-                        <p id="total-filas" class="text-5xl font-black text-emerald-500 drop-shadow-[0_0_12px_rgba(16,185,129,0.2)]">0</p>
+                    <div class="bg-black/60 p-5 rounded-xl border border-emerald-500/20 flex flex-col justify-center items-center">
+                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-1">Filas Listas</p>
+                        <p id="total-filas" class="text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">0</p>
                     </div>
 
-                    <div class="bg-black/50 p-5 rounded-xl border border-blue-500/10 md:col-span-2">
-                        <p class="text-zinc-500 text-xs uppercase font-bold tracking-widest mb-3 border-b border-zinc-800/80 pb-2">Despacho</p>
-                        <div id="conteo-despacho" class="flex flex-wrap gap-3 text-sm">
-                            </div>
+                    <div class="bg-black/60 p-5 rounded-xl border border-blue-500/20 md:col-span-2">
+                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3 border-b border-zinc-700 pb-2">Despacho</p>
+                        <div id="conteo-despacho" class="flex flex-wrap gap-3 text-sm"></div>
                     </div>
                 </div>
 
-                <div class="bg-black/50 p-5 rounded-xl border border-indigo-500/10 mb-8">
-                    <p class="text-zinc-500 text-xs uppercase font-bold tracking-widest mb-4 border-b border-zinc-800/80 pb-2">Líneas</p>
-                    <div id="conteo-lineas" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                        </div>
+                <div class="bg-black/60 p-5 rounded-xl border border-indigo-500/20 mb-8">
+                    <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-4 border-b border-zinc-700 pb-2">Líneas</p>
+                    <div id="conteo-lineas" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"></div>
                 </div>
 
-                <button id="btn-enviar" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-lg border border-blue-500/50">
+                <button id="btn-enviar" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] hover:shadow-[0_0_25px_rgba(37,99,235,0.6)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50">
                     <span>🚀</span> Guardar en el Histórico Maestro
                 </button>
             </div>
@@ -94,7 +124,20 @@
     </div>
 
     <script>
-        // --- 1. DICCIONARIOS Y CONFIGURACIÓN DE REGLAS ---
+        // ====================================================================
+        // CONFIGURACIÓN DE SEGURIDAD Y REGLAS
+        // ====================================================================
+        
+        // 1. Agrega aquí los DNIs que tienen permitido subir archivos.
+        // Si quieres dar acceso a alguien más, solo pon su DNI entre comillas separado por comas.
+        const DNIs_PERMITIDOS = [
+            "00000000", // DNI de prueba 1
+            "11111111", // DNI de prueba 2
+            "70123456"  // Cambia esto por los DNIs reales de tu equipo
+        ];
+
+        let usuarioActualDNI = ""; // Almacenará el DNI del usuario logueado
+
         const URL_GAS = "https://script.google.com/macros/s/AKfycbzf3m7UltNhlbUB2ICJyJZEcY13RpeMu-0Xks-T0Ek5_uLnmI58TQ5B0ILHzv87f5a7/exec";
         
         const VALORES_PERMITIDOS = {
@@ -106,13 +149,58 @@
         };
 
         const COLS_ADVERTENCIA = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 18]; 
-
         let datosListosParaEnviar = [];
 
-        // --- 2. FUNCIONES UTILITARIAS ---
+        // ====================================================================
+        // LÓGICA DE LOGIN
+        // ====================================================================
+        const inputDNI = document.getElementById('dni-input');
+        
+        // Función para validar el ingreso
+        function procesarLogin() {
+            const dni = inputDNI.value.trim();
+            if (DNIs_PERMITIDOS.includes(dni)) {
+                usuarioActualDNI = dni;
+                document.getElementById('login-error').classList.add('hidden');
+                
+                // Efecto de transición
+                document.getElementById('login-container').classList.add('opacity-0', 'scale-95');
+                setTimeout(() => {
+                    document.getElementById('login-container').classList.add('hidden');
+                    const app = document.getElementById('app-container');
+                    app.classList.remove('hidden');
+                    document.getElementById('user-display').innerText = usuarioActualDNI;
+                    
+                    // Pequeña animación de entrada para la app
+                    app.classList.add('opacity-0', 'translate-y-4');
+                    setTimeout(() => {
+                        app.classList.remove('opacity-0', 'translate-y-4');
+                    }, 50);
+                }, 400);
+
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+                // Efecto de temblor en caso de error
+                inputDNI.classList.add('animate-bounce');
+                setTimeout(() => inputDNI.classList.remove('animate-bounce'), 500);
+            }
+        }
+
+        document.getElementById('btn-login').onclick = procesarLogin;
+        
+        // Permitir login presionando "Enter"
+        inputDNI.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                procesarLogin();
+            }
+        });
+
+        // ====================================================================
+        // FUNCIONES UTILITARIAS Y LECTURA EXCEL
+        // ====================================================================
         const letraColumna = (index) => String.fromCharCode(65 + index);
         const limpiarTexto = (txt) => txt !== undefined && txt !== null ? String(txt).trim().toUpperCase() : "";
-        
         const esFechaValida = (valor) => {
             if (!valor) return false;
             if (!isNaN(valor)) return true; 
@@ -120,7 +208,6 @@
             return regexFecha.test(String(valor).trim());
         };
 
-        // --- 3. LÓGICA DE LECTURA E INTERFAZ ---
         const fileInput = document.getElementById('file-input');
         const dropZone = document.getElementById('drop-zone');
 
@@ -135,10 +222,7 @@
                 procesarArchivo(fileInput.files[0]);
             }
         });
-
-        fileInput.onchange = (e) => {
-            if (e.target.files[0]) procesarArchivo(e.target.files[0]);
-        };
+        fileInput.onchange = (e) => { if (e.target.files[0]) procesarArchivo(e.target.files[0]); };
 
         function procesarArchivo(file) {
             const reader = new FileReader();
@@ -151,6 +235,9 @@
             reader.readAsArrayBuffer(file);
         }
 
+        // ====================================================================
+        // VALIDACIÓN PRINCIPAL
+        // ====================================================================
         function procesarValidacion(filas) {
             let erroresBloqueantes = [];
             let conteoVaciosPorColumna = {}; 
@@ -211,11 +298,17 @@
                         }
                     });
 
+                    // CONSTRUCCIÓN DEL JSON A ENVIAR
                     let objetoLimpio = {};
                     encabezadosKeys.forEach((nombreKey, idx) => {
                         let keyFinal = nombreKey || `Columna_${letraColumna(idx)}`; 
                         objetoLimpio[keyFinal] = filaDatos[idx] !== undefined ? filaDatos[idx] : "";
                     });
+
+                    // 🔥 INYECCIÓN DE AUDITORÍA (DNI y Fecha/Hora)
+                    objetoLimpio["DNI_Usuario"] = usuarioActualDNI;
+                    objetoLimpio["Fecha_Hora_Subida"] = new Date().toLocaleString('es-PE', { hour12: false });
+
                     validosParaSubir.push(objetoLimpio);
                     
                     let linea = limpiarTexto(filaDatos[11]);
@@ -226,13 +319,14 @@
                 }
             }
 
+            // RENDERIZADO VISUAL (Igual que antes, con textos en blanco/altos contrastes)
             if (erroresBloqueantes.length > 0) {
                 document.getElementById('error-section').classList.remove('hidden');
                 document.getElementById('error-table-body').innerHTML = erroresBloqueantes.map(e => `
-                    <tr class="border-b border-red-500/10 hover:bg-red-950/50 transition-colors">
-                        <td class="p-3 border-r border-red-500/10 font-black text-center text-red-500">${e.fila}</td>
-                        <td class="p-3 border-r border-red-500/10 font-bold text-center text-zinc-300">${e.col}</td>
-                        <td class="p-3 text-red-300">${e.msg}</td>
+                    <tr class="border-b border-red-500/10 hover:bg-red-950/80 transition-colors">
+                        <td class="p-3 border-r border-red-500/10 font-black text-center text-red-400">${e.fila}</td>
+                        <td class="p-3 border-r border-red-500/10 font-bold text-center text-white">${e.col}</td>
+                        <td class="p-3 text-red-200 font-medium">${e.msg}</td>
                     </tr>
                 `).join('');
                 fileInput.value = ""; 
@@ -242,7 +336,7 @@
                 for (let colReal in conteoVaciosPorColumna) {
                     let cantidad = conteoVaciosPorColumna[colReal];
                     let palabra = cantidad === 1 ? "celda vacía" : "celdas vacías";
-                    htmlAdvertencias += `<li>Columna <strong class="text-amber-500">${colReal}</strong> tiene <span class="bg-amber-500/10 text-amber-400 font-bold px-2 py-0.5 rounded border border-amber-500/20 text-xs mx-1">${cantidad}</span> ${palabra}.</li>`;
+                    htmlAdvertencias += `<li>Columna <strong class="text-amber-400">${colReal}</strong> tiene <span class="bg-amber-500/20 text-amber-200 font-bold px-2 py-0.5 rounded border border-amber-500/30 text-xs mx-1">${cantidad}</span> ${palabra}.</li>`;
                 }
 
                 if (htmlAdvertencias !== "") {
@@ -256,44 +350,47 @@
                 let htmlDespacho = "";
                 for (const [despacho, cantidad] of Object.entries(conteoDespacho)) {
                     if (cantidad > 0) {
-                        htmlDespacho += `<div class="bg-blue-950/40 border border-blue-500/20 px-4 py-2 rounded-lg flex items-center gap-3">
-                            <span class="font-bold text-zinc-300">${despacho}</span>
-                            <span class="bg-blue-600 text-white py-0.5 px-2.5 rounded-full text-xs font-black shadow-lg">${cantidad}</span>
+                        htmlDespacho += `<div class="bg-blue-900/30 border border-blue-500/40 px-4 py-2 rounded-xl flex items-center gap-3">
+                            <span class="font-bold text-white">${despacho}</span>
+                            <span class="bg-blue-500 text-white py-0.5 px-3 rounded-full text-xs font-black shadow-[0_0_10px_rgba(59,130,246,0.5)]">${cantidad}</span>
                         </div>`;
                     }
                 }
-                document.getElementById('conteo-despacho').innerHTML = htmlDespacho || '<p class="text-zinc-600 italic text-xs">Sin datos</p>';
+                document.getElementById('conteo-despacho').innerHTML = htmlDespacho || '<p class="text-zinc-500 italic text-sm">Sin datos</p>';
 
                 let htmlConteo = "";
                 for (const [linea, cantidad] of Object.entries(conteoLineas)) {
                     if (cantidad > 0) {
-                        htmlConteo += `<div class="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded flex justify-between items-center hover:border-indigo-500/40 transition-colors">
-                            <span class="font-bold text-zinc-300 truncate mr-2" title="${linea}">${linea}</span>
-                            <span class="bg-indigo-500/10 text-indigo-400 py-1 px-2 rounded font-black border border-indigo-500/20">${cantidad}</span>
+                        htmlConteo += `<div class="bg-black/80 border border-zinc-700 px-3 py-2 rounded-lg flex justify-between items-center hover:border-indigo-400/60 transition-colors">
+                            <span class="font-bold text-white truncate mr-2" title="${linea}">${linea}</span>
+                            <span class="bg-indigo-500/20 text-indigo-300 py-1 px-2 rounded-md font-black border border-indigo-500/30">${cantidad}</span>
                         </div>`;
                     }
                 }
-                document.getElementById('conteo-lineas').innerHTML = htmlConteo || '<p class="text-zinc-600 italic col-span-2">Sin líneas validadas.</p>';
+                document.getElementById('conteo-lineas').innerHTML = htmlConteo || '<p class="text-zinc-500 italic col-span-2">Sin líneas validadas.</p>';
                 
                 datosListosParaEnviar = validosParaSubir;
             }
         }
 
+        // ====================================================================
+        // ENVÍO AL BACKEND
+        // ====================================================================
         document.getElementById('btn-enviar').onclick = () => {
             if (datosListosParaEnviar.length === 0) return;
             
             const btn = document.getElementById('btn-enviar');
             btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Guardando en la nube...`; 
             btn.disabled = true;
-            btn.classList.replace('bg-blue-600', 'bg-zinc-800');
-            btn.classList.replace('hover:bg-blue-500', 'hover:bg-zinc-700');
-            btn.classList.remove('shadow-[0_0_15px_rgba(37,99,235,0.3)]', 'border-blue-500/50');
+            btn.classList.replace('bg-blue-600', 'bg-zinc-700');
+            btn.classList.replace('hover:bg-blue-500', 'hover:bg-zinc-600');
+            btn.classList.remove('shadow-[0_0_15px_rgba(37,99,235,0.4)]', 'border-blue-400/50');
 
             fetch(URL_GAS, { method: "POST", mode: "no-cors", body: JSON.stringify(datosListosParaEnviar) })
             .then(() => { 
                 btn.innerHTML = "✅ ¡Datos Guardados Exitosamente!";
-                btn.classList.replace('bg-zinc-800', 'bg-emerald-600');
-                btn.classList.replace('hover:bg-zinc-700', 'hover:bg-emerald-500');
+                btn.classList.replace('bg-zinc-700', 'bg-emerald-600');
+                btn.classList.replace('hover:bg-zinc-600', 'hover:bg-emerald-500');
                 
                 setTimeout(() => {
                     document.getElementById('result-container').classList.add('hidden');
@@ -301,7 +398,7 @@
                     btn.disabled = false;
                     btn.classList.replace('bg-emerald-600', 'bg-blue-600');
                     btn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
-                    btn.classList.add('shadow-[0_0_15px_rgba(37,99,235,0.3)]', 'border-blue-500/50');
+                    btn.classList.add('shadow-[0_0_15px_rgba(37,99,235,0.4)]', 'border-blue-400/50');
                     fileInput.value = "";
                     datosListosParaEnviar = [];
                 }, 4000);
@@ -309,8 +406,8 @@
                 alert("Hubo un problema de conexión. Inténtalo de nuevo.");
                 btn.innerHTML = "<span>🔄</span> Reintentar Guardado";
                 btn.disabled = false;
-                btn.classList.replace('bg-zinc-800', 'bg-red-600');
-                btn.classList.replace('hover:bg-zinc-700', 'hover:bg-red-500');
+                btn.classList.replace('bg-zinc-700', 'bg-red-600');
+                btn.classList.replace('hover:bg-zinc-600', 'hover:bg-red-500');
             });
         };
     </script>
