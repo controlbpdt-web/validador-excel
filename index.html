@@ -50,7 +50,7 @@
                 <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
                 <p class="text-zinc-300 mt-1 flex items-center gap-2">
                     Sube tu archivo Excel para validar la estructura.
-                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Motor Fuzzy AI Activo (49%)</span>
+                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Motor Fuzzy AI + Alias</span>
                 </p>
             </div>
             <div class="mt-4 md:mt-0 bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex items-center gap-2">
@@ -157,12 +157,21 @@
         let usuarioActualDNI = ""; 
         const URL_GAS = "https://script.google.com/macros/s/AKfycbzf3m7UltNhlbUB2ICJyJZEcY13RpeMu-0Xks-T0Ek5_uLnmI58TQ5B0ILHzv87f5a7/exec";
         
+        // DICCIONARIO PRINCIPAL DE VALORES PERMITIDOS
         const VALORES_PERMITIDOS = {
             1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"], 
             11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], 
             15: ["LIMA", "PROVINCIA"], 
-            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO"], 
+            // NUEVO: Agregado "RECOJO CLIENTE" a la columna 16 (Q)
+            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO", "RECOJO CLIENTE"], 
             17: ["SECO", "REFRIGERADO"] 
+        };
+
+        // NUEVO: DICCIONARIO DE HOMOLOGACIÓN FORZADA (Alias absolutos)
+        const HOMOLOGACION_FORZADA = {
+            11: {
+                "ADIUM": "TECNOFARMA" // Si llega ADIUM en col 11(L), se cambia a TECNOFARMA automáticamente
+            }
         };
 
         const COLS_ADVERTENCIA = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 18]; 
@@ -171,7 +180,6 @@
         // ====================================================================
         // ALGORITMO FUZZY MATCHING (Distancia Levenshtein)
         // ====================================================================
-        // Calcula la similitud entre dos textos (Retorna un valor de 0 a 1)
         function calcularSimilitud(s1, s2) {
             let longer = s1;
             let shorter = s2;
@@ -272,7 +280,7 @@
         }
 
         // ====================================================================
-        // VALIDACIÓN PRINCIPAL CON MOTOR HÍBRIDO FUZZY MATCHING
+        // VALIDACIÓN PRINCIPAL CON MOTOR HÍBRIDO (ALIAS + FUZZY MATCHING)
         // ====================================================================
         function procesarValidacion(filas) {
             let erroresBloqueantes = [];
@@ -298,7 +306,7 @@
             const encabezadosKeys = filas[3]; 
 
             for (let i = 4; i < filas.length; i++) {
-                let filaDatos = [...filas[i]]; // Clonamos la fila para poder sobrescribir valores silenciósamente
+                let filaDatos = [...filas[i]]; 
                 let filaVacia = true;
                 
                 for(let celda of filaDatos) if(String(celda).trim() !== "") filaVacia = false;
@@ -316,7 +324,7 @@
                     erroresEnEstaFila = true;
                 }
 
-                // MOTOR HÍBRIDO: Validación Estricta + Fuzzy Matching
+                // MOTOR HÍBRIDO: Validación Estricta + Homologación Forzada + Fuzzy Matching
                 Object.keys(VALORES_PERMITIDOS).forEach(idxStr => {
                     let idx = parseInt(idxStr);
                     let valorCrudo = filaDatos[idx];
@@ -328,7 +336,13 @@
                         return; // Salta a la siguiente columna
                     }
 
-                    // Si NO es una coincidencia exacta, se activa el motor de búsqueda difusa
+                    // 1. REGLA DE HOMOLOGACIÓN FORZADA (Ej. ADIUM -> TECNOFARMA)
+                    if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
+                        valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
+                        filaDatos[idx] = valorLimpio; // Aplicar cambio silencioso y continuar
+                    }
+
+                    // 2. Validación Exacta y Búsqueda Difusa
                     if (!VALORES_PERMITIDOS[idx].includes(valorLimpio)) {
                         
                         let mejorSimilitud = 0;
@@ -345,22 +359,21 @@
 
                         // Umbral de Confianza ajustado al 49% (0.49)
                         if (mejorSimilitud >= 0.49) {
-                            // CORRECCIÓN SILENCIOSA: Sobrescribimos el valor por el correcto del diccionario
+                            // CORRECCIÓN SILENCIOSA
                             filaDatos[idx] = mejorCoincidencia; 
                         } else {
-                            // RECHAZO: La similitud fue muy baja (Error crítico)
+                            // RECHAZO: Similitud muy baja
                             let porcentajeFallo = Math.round(mejorSimilitud * 100);
-                            let mensaje = `Valor inválido: "${valorCrudo}". Similitud más alta encontrada: ${porcentajeFallo}%`;
+                            let mensaje = `Valor inválido: "${valorCrudo}". Similitud más alta: ${porcentajeFallo}% (Necesita 49%)`;
                             erroresBloqueantes.push({ fila: numFilaVisual, col: letraColumna(idx), msg: mensaje });
                             erroresEnEstaFila = true;
                         }
                     } else {
-                        // Es coincidencia exacta. Lo normalizamos por si el usuario usó minúsculas
+                        // Es coincidencia exacta.
                         filaDatos[idx] = valorLimpio; 
                     }
                 });
 
-                // Si superó todas las validaciones (o fue corregida silenciosamente por el Fuzzy Match)
                 if (!erroresEnEstaFila) {
                     COLS_ADVERTENCIA.forEach(idx => {
                         if (String(filaDatos[idx] || "").trim() === "") {
@@ -371,7 +384,6 @@
                     });
 
                     // CONSTRUCCIÓN DEL JSON
-                    // Importante: Usamos filaDatos (que ya tiene las palabras corregidas silenciosamente)
                     let objetoLimpio = {};
                     encabezadosKeys.forEach((nombreKey, idx) => {
                         let keyFinal = nombreKey || `Columna_${letraColumna(idx)}`; 
