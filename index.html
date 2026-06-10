@@ -35,9 +35,10 @@
                     placeholder="••••••••" 
                     onkeypress="return event.charCode >= 48 && event.charCode <= 57" autocomplete="off">
                 <p id="login-error" class="text-red-400 text-sm mt-2 hidden font-medium text-center">❌ DNI no autorizado o inválido.</p>
+                <p id="login-network-error" class="text-amber-400 text-sm mt-2 hidden font-medium text-center">⚠️ Error de conexión con el servidor.</p>
             </div>
 
-            <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.3)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] transition-all text-lg">
+            <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.3)] transition-all text-lg flex justify-center items-center gap-2">
                 Ingresar al Sistema
             </button>
         </div>
@@ -53,9 +54,12 @@
                     <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Motor Fuzzy AI + Alias</span>
                 </p>
             </div>
-            <div class="mt-4 md:mt-0 bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex items-center gap-2">
-                <span class="text-zinc-400 text-sm">Usuario actual:</span>
-                <span id="user-display" class="text-white font-bold tracking-wider"></span>
+            <div class="mt-4 md:mt-0 flex flex-col items-end gap-2">
+                <div class="bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex items-center gap-2">
+                    <span class="text-zinc-400 text-sm">Usuario actual:</span>
+                    <span id="user-display" class="text-white font-bold tracking-wider"></span>
+                </div>
+                <button id="btn-logout" class="text-zinc-500 hover:text-red-400 text-xs font-bold transition-colors underline decoration-zinc-700 underline-offset-4">Cerrar Sesión Segura</button>
             </div>
         </div>
         
@@ -145,37 +149,114 @@
 
     <script>
         // ====================================================================
-        // CONFIGURACIÓN DE SEGURIDAD Y REGLAS
+        // CONFIGURACIÓN BASE (URL ACTUALIZADA)
         // ====================================================================
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbwbsQkt3418Y3-kYFZT-ZSfAtWVjW9_539gRqpog1FBKTWma1I5v6F3EVhr2Tb2bABo/exec";
         
-        const DNIs_PERMITIDOS = [
-            "77355038", // <-- TU DNI (Acceso principal)
-            "00000000", 
-            "11111111"  
-        ];
-
         let usuarioActualDNI = ""; 
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbzf3m7UltNhlbUB2ICJyJZEcY13RpeMu-0Xks-T0Ek5_uLnmI58TQ5B0ILHzv87f5a7/exec";
         
         // DICCIONARIO PRINCIPAL DE VALORES PERMITIDOS
         const VALORES_PERMITIDOS = {
             1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"], 
             11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], 
             15: ["LIMA", "PROVINCIA"], 
-            // NUEVO: Agregado "RECOJO CLIENTE" a la columna 16 (Q)
             16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO", "RECOJO CLIENTE"], 
             17: ["SECO", "REFRIGERADO"] 
         };
 
-        // NUEVO: DICCIONARIO DE HOMOLOGACIÓN FORZADA (Alias absolutos)
+        // DICCIONARIO DE HOMOLOGACIÓN FORZADA (Alias absolutos)
         const HOMOLOGACION_FORZADA = {
             11: {
-                "ADIUM": "TECNOFARMA" // Si llega ADIUM en col 11(L), se cambia a TECNOFARMA automáticamente
+                "ADIUM": "TECNOFARMA" 
             }
         };
 
         const COLS_ADVERTENCIA = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 18]; 
         let datosListosParaEnviar = [];
+
+        // ====================================================================
+        // LÓGICA DE LOGIN EN EL SERVIDOR + LOCALSTORAGE
+        // ====================================================================
+        const inputDNI = document.getElementById('dni-input');
+        const btnLogin = document.getElementById('btn-login');
+        const TIEMPO_SESION_HORAS = 8;
+        
+        // Ejecutar al cargar la página (Verificar si hay sesión viva)
+        window.onload = () => {
+            const sesionGuardada = localStorage.getItem('validador_sesion_segura');
+            if (sesionGuardada) {
+                const sesion = JSON.parse(sesionGuardada);
+                const ahora = Date.now();
+                const limiteTiempo = TIEMPO_SESION_HORAS * 60 * 60 * 1000;
+                
+                if ((ahora - sesion.timestamp) < limiteTiempo) {
+                    iniciarApp(sesion.dni);
+                } else {
+                    // La sesión expiró
+                    localStorage.removeItem('validador_sesion_segura');
+                }
+            }
+        };
+
+        async function procesarLogin() {
+            const dni = inputDNI.value.trim();
+            if(dni.length === 0) return;
+
+            // UI: Modo de carga
+            document.getElementById('login-error').classList.add('hidden');
+            document.getElementById('login-network-error').classList.add('hidden');
+            btnLogin.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Validando DNI...`;
+            btnLogin.disabled = true;
+
+            try {
+                // Petición al backend (Google Apps Script)
+                const respuesta = await fetch(URL_GAS + "?action=login&dni=" + dni);
+                const datos = await respuesta.json();
+
+                if (datos.autorizado) {
+                    // Guardar sesión en el navegador
+                    localStorage.setItem('validador_sesion_segura', JSON.stringify({
+                        dni: dni,
+                        timestamp: Date.now()
+                    }));
+                    iniciarApp(dni);
+                } else {
+                    document.getElementById('login-error').classList.remove('hidden');
+                    inputDNI.classList.add('animate-bounce');
+                    setTimeout(() => inputDNI.classList.remove('animate-bounce'), 500);
+                }
+            } catch (error) {
+                console.error("Error validando el DNI:", error);
+                document.getElementById('login-network-error').classList.remove('hidden');
+            } finally {
+                // Restaurar UI del botón
+                btnLogin.innerHTML = `Ingresar al Sistema`;
+                btnLogin.disabled = false;
+            }
+        }
+
+        function iniciarApp(dniValidado) {
+            usuarioActualDNI = dniValidado;
+            document.getElementById('login-container').classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                document.getElementById('login-container').classList.add('hidden');
+                const app = document.getElementById('app-container');
+                app.classList.remove('hidden');
+                document.getElementById('user-display').innerText = usuarioActualDNI;
+                
+                app.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(() => { app.classList.remove('opacity-0', 'translate-y-4'); }, 50);
+            }, 400);
+        }
+
+        document.getElementById('btn-login').onclick = procesarLogin;
+        inputDNI.addEventListener('keypress', function (e) { if (e.key === 'Enter') { e.preventDefault(); procesarLogin(); }});
+
+        // CERRAR SESIÓN MANUALMENTE
+        document.getElementById('btn-logout').onclick = () => {
+            localStorage.removeItem('validador_sesion_segura');
+            location.reload(); // Recarga la página volviendo a la pantalla de bloqueo
+        };
 
         // ====================================================================
         // ALGORITMO FUZZY MATCHING (Distancia Levenshtein)
@@ -207,38 +288,6 @@
             }
             return (longerLength - costs[shorter.length]) / parseFloat(longerLength);
         }
-
-        // ====================================================================
-        // LÓGICA DE LOGIN
-        // ====================================================================
-        const inputDNI = document.getElementById('dni-input');
-        
-        function procesarLogin() {
-            const dni = inputDNI.value.trim();
-            if (DNIs_PERMITIDOS.includes(dni)) {
-                usuarioActualDNI = dni;
-                document.getElementById('login-error').classList.add('hidden');
-                
-                document.getElementById('login-container').classList.add('opacity-0', 'scale-95');
-                setTimeout(() => {
-                    document.getElementById('login-container').classList.add('hidden');
-                    const app = document.getElementById('app-container');
-                    app.classList.remove('hidden');
-                    document.getElementById('user-display').innerText = usuarioActualDNI;
-                    
-                    app.classList.add('opacity-0', 'translate-y-4');
-                    setTimeout(() => { app.classList.remove('opacity-0', 'translate-y-4'); }, 50);
-                }, 400);
-
-            } else {
-                document.getElementById('login-error').classList.remove('hidden');
-                inputDNI.classList.add('animate-bounce');
-                setTimeout(() => inputDNI.classList.remove('animate-bounce'), 500);
-            }
-        }
-
-        document.getElementById('btn-login').onclick = procesarLogin;
-        inputDNI.addEventListener('keypress', function (e) { if (e.key === 'Enter') { e.preventDefault(); procesarLogin(); }});
 
         // ====================================================================
         // FUNCIONES UTILITARIAS Y LECTURA EXCEL
@@ -493,7 +542,7 @@
             btn.disabled = true;
             btn.classList.replace('bg-blue-600', 'bg-zinc-700');
             btn.classList.replace('hover:bg-blue-500', 'hover:bg-zinc-600');
-            btn.classList.remove('shadow-[0_0_15px_rgba(37,99,235,0.4)]', 'border-blue-400/50');
+            btn.classList.remove('shadow-[0_0_15px_rgba(37,99,235,0.4)]');
 
             fetch(URL_GAS, { method: "POST", mode: "no-cors", body: JSON.stringify(datosListosParaEnviar) })
             .then(() => { 
@@ -507,7 +556,7 @@
                     btn.disabled = false;
                     btn.classList.replace('bg-emerald-600', 'bg-blue-600');
                     btn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
-                    btn.classList.add('shadow-[0_0_15px_rgba(37,99,235,0.4)]', 'border-blue-400/50');
+                    btn.classList.add('shadow-[0_0_15px_rgba(37,99,235,0.4)]');
                     fileInput.value = "";
                     datosListosParaEnviar = [];
                 }, 4000);
