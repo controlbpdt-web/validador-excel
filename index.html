@@ -51,7 +51,7 @@
                 <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
                 <p class="text-zinc-300 mt-1 flex items-center gap-2">
                     Sube tu archivo Excel para validar la estructura.
-                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Motor Fuzzy AI + Alias</span>
+                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Fuzzy AI + Bloqueo Col. S</span>
                 </p>
             </div>
             <div class="mt-4 md:mt-0 flex flex-col items-end gap-2">
@@ -329,7 +329,7 @@
         }
 
         // ====================================================================
-        // VALIDACIÓN PRINCIPAL CON MOTOR HÍBRIDO (ALIAS + FUZZY MATCHING)
+        // VALIDACIÓN PRINCIPAL CON CERCO ESTRICTO DE COLUMNAS (A - S)
         // ====================================================================
         function procesarValidacion(filas) {
             let erroresBloqueantes = [];
@@ -358,7 +358,10 @@
                 let filaDatos = [...filas[i]]; 
                 let filaVacia = true;
                 
-                for(let celda of filaDatos) if(String(celda).trim() !== "") filaVacia = false;
+                // Evaluamos solo las primeras 19 columnas (A - S) para determinar si la fila está vacía
+                for(let c = 0; c <= 18; c++) {
+                    if(String(filaDatos[c] || "").trim() !== "") filaVacia = false;
+                }
                 if(filaVacia) continue;
 
                 let valC = limpiarTexto(filaDatos[2]);
@@ -373,7 +376,6 @@
                     erroresEnEstaFila = true;
                 }
 
-                // MOTOR HÍBRIDO: Validación Estricta + Homologación Forzada + Fuzzy Matching
                 Object.keys(VALORES_PERMITIDOS).forEach(idxStr => {
                     let idx = parseInt(idxStr);
                     let valorCrudo = filaDatos[idx];
@@ -385,19 +387,16 @@
                         return; // Salta a la siguiente columna
                     }
 
-                    // 1. REGLA DE HOMOLOGACIÓN FORZADA (Ej. ADIUM -> TECNOFARMA)
                     if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
                         valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
-                        filaDatos[idx] = valorLimpio; // Aplicar cambio silencioso y continuar
+                        filaDatos[idx] = valorLimpio; 
                     }
 
-                    // 2. Validación Exacta y Búsqueda Difusa
                     if (!VALORES_PERMITIDOS[idx].includes(valorLimpio)) {
                         
                         let mejorSimilitud = 0;
                         let mejorCoincidencia = "";
 
-                        // Comparar el valor del usuario contra cada opción del diccionario
                         VALORES_PERMITIDOS[idx].forEach(permitido => {
                             let similitud = calcularSimilitud(valorLimpio, permitido);
                             if (similitud > mejorSimilitud) {
@@ -406,19 +405,15 @@
                             }
                         });
 
-                        // Umbral de Confianza ajustado al 49% (0.49)
                         if (mejorSimilitud >= 0.49) {
-                            // CORRECCIÓN SILENCIOSA
                             filaDatos[idx] = mejorCoincidencia; 
                         } else {
-                            // RECHAZO: Similitud muy baja
                             let porcentajeFallo = Math.round(mejorSimilitud * 100);
                             let mensaje = `Valor inválido: "${valorCrudo}". Similitud más alta: ${porcentajeFallo}% (Necesita 49%)`;
                             erroresBloqueantes.push({ fila: numFilaVisual, col: letraColumna(idx), msg: mensaje });
                             erroresEnEstaFila = true;
                         }
                     } else {
-                        // Es coincidencia exacta.
                         filaDatos[idx] = valorLimpio; 
                     }
                 });
@@ -432,13 +427,17 @@
                         }
                     });
 
-                    // CONSTRUCCIÓN DEL JSON
+                    // ====================================================================
+                    // CERCO ESTRICTO: Solo enviamos de la Columna 0 (A) a la 18 (S)
+                    // ====================================================================
                     let objetoLimpio = {};
-                    encabezadosKeys.forEach((nombreKey, idx) => {
-                        let keyFinal = nombreKey || `Columna_${letraColumna(idx)}`; 
-                        objetoLimpio[keyFinal] = filaDatos[idx] !== undefined ? filaDatos[idx] : "";
-                    });
+                    for (let c = 0; c <= 18; c++) {
+                        let nombreKey = encabezadosKeys[c];
+                        let keyFinal = nombreKey ? String(nombreKey).trim() : `Columna_${letraColumna(c)}`; 
+                        objetoLimpio[keyFinal] = filaDatos[c] !== undefined ? filaDatos[c] : "";
+                    }
 
+                    // Inyectamos la auditoría obligatoria que ocupará las columnas T y U en el backend
                     objetoLimpio["DNI_Usuario"] = usuarioActualDNI;
                     objetoLimpio["Fecha_Hora_Subida"] = new Date().toLocaleString('es-PE', { hour12: false });
 
