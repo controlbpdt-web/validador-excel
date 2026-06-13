@@ -149,7 +149,7 @@
         // CONFIGURACIÓN BASE
         // ====================================================================
         // ENLACE NUEVO ACTUALIZADO
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbxn8tfrp6i0ftdr7oYliv5_0_mEocM_MpjHKtYoeHvkxQLd2fPHltAbi0vdDLiMm4aK/exec";
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbwjYeBe2P570XGyvK-hGWK6U_5NBiof37yjJptrrBgrqn_s5NvU001r-pnz3dhn4uHA/exec";
         
         let usuarioActualDNI = ""; 
         
@@ -449,23 +449,26 @@
                         }
                     });
 
-                    let objetoLimpio = {};
-                    let cadenaParaHuella = "";
-                    
-                    for (let c = 0; c <= 18; c++) {
-                        let nombreKey = encabezadosKeys[c];
-                        let keyFinal = nombreKey ? String(nombreKey).trim() : `Columna_${letraColumna(c)}`; 
-                        let valCelda = filaDatos[c] !== undefined ? String(filaDatos[c]).trim() : "";
-                        
-                        objetoLimpio[keyFinal] = valCelda;
-                        cadenaParaHuella += valCelda + "|"; 
-                    }
+                    // CONSTRUCCIÓN DEL OBJETO CON ORDEN FIJO
+let objetoLimpio = {};
+let cadenaParaHuella = "";
 
-                    objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella);
-                    objetoLimpio["DNI_Usuario"] = usuarioActualDNI;
-                    objetoLimpio["Fecha_Hora_Subida"] = new Date().toLocaleString('es-PE', { hour12: false });
+// 1. Datos del Excel (Columnas A - S)
+for (let c = 0; c <= 18; c++) {
+    let nombreKey = encabezadosKeys[c];
+    let keyFinal = nombreKey ? String(nombreKey).trim() : `Columna_${letraColumna(c)}`; 
+    let valCelda = filaDatos[c] !== undefined ? String(filaDatos[c]).trim() : "";
+    
+    objetoLimpio[keyFinal] = valCelda;
+    cadenaParaHuella += valCelda + "|"; 
+}
 
-                    validosParaSubir.push(objetoLimpio);
+// 2. Auditoría al final (Columnas T, U, V)
+objetoLimpio["USER"] = usuarioActualDNI;                   // Columna T
+objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); // Columna U
+objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); // Columna V (Huella al final)
+
+validosParaSubir.push(objetoLimpio);
                     
                     let linea = limpiarTexto(filaDatos[11]);
                     if (conteoLineas[linea] !== undefined) conteoLineas[linea]++;
