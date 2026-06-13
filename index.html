@@ -48,13 +48,14 @@
                 <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
                 <p class="text-zinc-300 mt-1 flex items-center gap-2">
                     Sube tu archivo Excel para validar la estructura.
-                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Motor de Fechas Cortas Activo</span>
+                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Fuzzy AI + AntiDuplicados</span>
                 </p>
             </div>
-            <div class="mt-4 md:mt-0 flex flex-col items-end gap-2">
-                <div class="bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex items-center gap-2">
-                    <span class="text-zinc-400 text-sm">Usuario actual:</span>
-                    <span id="user-display" class="text-white font-bold tracking-wider"></span>
+            <div class="mt-4 md:mt-0 flex flex-col items-end gap-1.5">
+                <div class="bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex flex-wrap items-center gap-2 max-w-md justify-end">
+                    <span class="text-zinc-400 text-sm">Usuario:</span>
+                    <span id="user-display" class="text-white font-bold tracking-wider mr-1"></span>
+                    <span id="last-upload-display" class="text-zinc-400 text-xs border-l border-zinc-700 pl-2 italic"></span>
                 </div>
                 <button id="btn-logout" class="text-zinc-500 hover:text-red-400 text-xs font-bold transition-colors underline decoration-zinc-700 underline-offset-4">Cerrar Sesión Segura</button>
             </div>
@@ -147,7 +148,9 @@
         // ====================================================================
         // CONFIGURACIÓN BASE
         // ====================================================================
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbwbsQkt3418Y3-kYFZT-ZSfAtWVjW9_539gRqpog1FBKTWma1I5v6F3EVhr2Tb2bABo/exec";
+        // ENLACE NUEVO ACTUALIZADO
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbxn8tfrp6i0ftdr7oYliv5_0_mEocM_MpjHKtYoeHvkxQLd2fPHltAbi0vdDLiMm4aK/exec";
+        
         let usuarioActualDNI = ""; 
         
         const VALORES_PERMITIDOS = {
@@ -166,7 +169,7 @@
         let datosListosParaEnviar = [];
 
         // ====================================================================
-        // LÓGICA DE LOGIN EN EL SERVIDOR + LOCALSTORAGE
+        // GESTIÓN DE SESIÓN Y REGISTRO VISUAL DE CARGAS
         // ====================================================================
         const inputDNI = document.getElementById('dni-input');
         const btnLogin = document.getElementById('btn-login');
@@ -193,7 +196,7 @@
 
             document.getElementById('login-error').classList.add('hidden');
             document.getElementById('login-network-error').classList.add('hidden');
-            btnLogin.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Validando DNI...`;
+            btnLogin.innerHTML = `Validando DNI...`;
             btnLogin.disabled = true;
 
             try {
@@ -209,7 +212,7 @@
                     setTimeout(() => inputDNI.classList.remove('animate-bounce'), 500);
                 }
             } catch (error) {
-                console.error("Error validando el DNI:", error);
+                console.error(error);
                 document.getElementById('login-network-error').classList.remove('hidden');
             } finally {
                 btnLogin.innerHTML = `Ingresar al Sistema`;
@@ -225,9 +228,22 @@
                 const app = document.getElementById('app-container');
                 app.classList.remove('hidden');
                 document.getElementById('user-display').innerText = usuarioActualDNI;
+                
+                actualizarDisplayUltimaCarga(usuarioActualDNI);
+
                 app.classList.add('opacity-0', 'translate-y-4');
                 setTimeout(() => { app.classList.remove('opacity-0', 'translate-y-4'); }, 50);
             }, 400);
+        }
+
+        function actualizarDisplayUltimaCarga(dni) {
+            const ultimaCarga = localStorage.getItem('fecha_ultima_carga_' + dni);
+            const display = document.getElementById('last-upload-display');
+            if (ultimaCarga) {
+                display.innerHTML = `Última carga: <span class="text-blue-400 font-semibold">${ultimaCarga}</span>`;
+            } else {
+                display.innerHTML = `Sin cargas hoy`;
+            }
         }
 
         document.getElementById('btn-login').onclick = procesarLogin;
@@ -239,33 +255,35 @@
         };
 
         // ====================================================================
-        // FUNCIONES UTILITARIAS Y FORMATO DE FECHAS
+        // ALGORITMOS DE SELECCIÓN (FECHAS, FUZZY Y HASHING)
         // ====================================================================
         
-        // Esta es la nueva función experta que fuerza a la fecha a ser siempre DD/MM/YYYY
+        function generarHuellaDigital(textoFila) {
+            let hash = 0;
+            for (let i = 0; i < textoFila.length; i++) {
+                const char = textoFila.charCodeAt(i);
+                hash = (hash << 5) - hash + char;
+                hash |= 0; 
+            }
+            return "ID_" + Math.abs(hash);
+        }
+
         const estandarizarFechaCorta = (valor) => {
             if (!valor) return "";
-            
-            // Si el motor detecta que es una fecha real de Javascript (gracias al cellDates: true)
             if (valor instanceof Date) {
                 let d = String(valor.getDate()).padStart(2, '0');
                 let m = String(valor.getMonth() + 1).padStart(2, '0'); 
                 let y = valor.getFullYear();
                 return `${d}/${m}/${y}`;
             }
-            
-            // Si viene como número de serie de Excel (ej: 45000)
             if (typeof valor === 'number') {
                 let fechaObj = new Date((valor - (25567 + 2)) * 86400 * 1000);
-                // Ajuste de zona horaria para evitar desfaces
                 fechaObj = new Date(fechaObj.getTime() + (fechaObj.getTimezoneOffset() * 60000));
                 let d = String(fechaObj.getDate()).padStart(2, '0');
                 let m = String(fechaObj.getMonth() + 1).padStart(2, '0');
                 let y = fechaObj.getFullYear();
                 return `${d}/${m}/${y}`;
             }
-
-            // Si ya es un texto, lo devolvemos limpio
             return String(valor).trim();
         };
 
@@ -304,7 +322,7 @@
         const limpiarTexto = (txt) => txt !== undefined && txt !== null ? String(txt).trim().toUpperCase() : "";
 
         // ====================================================================
-        // LECTURA EXCEL
+        // PROCESAMIENTO EXCEL
         // ====================================================================
         const fileInput = document.getElementById('file-input');
         const dropZone = document.getElementById('drop-zone');
@@ -321,11 +339,8 @@
         function procesarArchivo(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
-                // EXTREMADAMENTE IMPORTANTE: cellDates: true permite ver más allá de la máscara "9-Jun" de Excel
                 const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
                 const hoja = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // Usamos raw: true para traer los datos puros sin formatos visuales engañosos
                 const dataPlana = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "", raw: true });
                 procesarValidacion(dataPlana);
             };
@@ -374,23 +389,21 @@
                 let numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
 
-                // 1. OBLIGATORIO: Forzamos la Columna A a ser Fecha Corta (DD/MM/YYYY)
+                // Estandarizar fecha a corta
                 let fechaOriginal = filaDatos[0];
                 let fechaCortaTransformada = estandarizarFechaCorta(fechaOriginal);
-                filaDatos[0] = fechaCortaTransformada; // Sobrescribimos el dato con la fecha ya corregida
+                filaDatos[0] = fechaCortaTransformada; 
 
                 if (!esFechaValida(fechaCortaTransformada)) {
-                    erroresBloqueantes.push({ fila: numFilaVisual, col: "A", msg: "Debe ser una fecha válida (Formato extraído: " + fechaCortaTransformada + ")." });
+                    erroresBloqueantes.push({ fila: numFilaVisual, col: "A", msg: "Debe ser una fecha válida." });
                     erroresEnEstaFila = true;
                 }
 
-                // 2. OBLIGATORIO: Validar que Columna C (Entrega) NO esté vacía
                 if (limpiarTexto(filaDatos[2]) === "") {
                     erroresBloqueantes.push({ fila: numFilaVisual, col: "C", msg: "Celda vacía obligatoria (Entrega)." });
                     erroresEnEstaFila = true;
                 }
 
-                // 3. Diccionarios y Fuzzy Matching
                 Object.keys(VALORES_PERMITIDOS).forEach(idxStr => {
                     let idx = parseInt(idxStr);
                     let valorCrudo = filaDatos[idx];
@@ -408,22 +421,17 @@
                     }
 
                     if (!VALORES_PERMITIDOS[idx].includes(valorLimpio)) {
-                        let mejorSimilitud = 0;
-                        let mejorCoincidencia = "";
-
+                        let mejorSimilitud = 0; let mejorCoincidencia = "";
                         VALORES_PERMITIDOS[idx].forEach(permitido => {
                             let similitud = calcularSimilitud(valorLimpio, permitido);
-                            if (similitud > mejorSimilitud) {
-                                mejorSimilitud = similitud;
-                                mejorCoincidencia = permitido;
-                            }
+                            if (similitud > mejorSimilitud) { mejorSimilitud = similitud; mejorCoincidencia = permitido; }
                         });
 
                         if (mejorSimilitud >= 0.49) {
                             filaDatos[idx] = mejorCoincidencia; 
                         } else {
                             let porcentajeFallo = Math.round(mejorSimilitud * 100);
-                            let mensaje = `Valor inválido: "${valorCrudo}". Similitud más alta: ${porcentajeFallo}% (Necesita 49%)`;
+                            let mensaje = `Valor inválido: "${valorCrudo}". Similitud más alta: ${porcentajeFallo}%`;
                             erroresBloqueantes.push({ fila: numFilaVisual, col: letraColumna(idx), msg: mensaje });
                             erroresEnEstaFila = true;
                         }
@@ -441,14 +449,19 @@
                         }
                     });
 
-                    // CONSTRUCCIÓN DEL JSON (Delimitado de A hasta S)
                     let objetoLimpio = {};
+                    let cadenaParaHuella = "";
+                    
                     for (let c = 0; c <= 18; c++) {
                         let nombreKey = encabezadosKeys[c];
                         let keyFinal = nombreKey ? String(nombreKey).trim() : `Columna_${letraColumna(c)}`; 
-                        objetoLimpio[keyFinal] = filaDatos[c] !== undefined ? filaDatos[c] : "";
+                        let valCelda = filaDatos[c] !== undefined ? String(filaDatos[c]).trim() : "";
+                        
+                        objetoLimpio[keyFinal] = valCelda;
+                        cadenaParaHuella += valCelda + "|"; 
                     }
 
+                    objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella);
                     objetoLimpio["DNI_Usuario"] = usuarioActualDNI;
                     objetoLimpio["Fecha_Hora_Subida"] = new Date().toLocaleString('es-PE', { hour12: false });
 
@@ -462,7 +475,6 @@
                 }
             }
 
-            // RENDERIZADO VISUAL
             if (erroresBloqueantes.length > 0) {
                 document.getElementById('error-section').classList.remove('hidden');
                 document.getElementById('error-table-body').innerHTML = erroresBloqueantes.map(e => `
@@ -478,8 +490,7 @@
                 let htmlAdvertencias = "";
                 for (let colReal in conteoVaciosPorColumna) {
                     let cantidad = conteoVaciosPorColumna[colReal];
-                    let palabra = cantidad === 1 ? "celda vacía" : "celdas vacías";
-                    htmlAdvertencias += `<li>Columna <strong class="text-amber-400">${colReal}</strong> tiene <span class="bg-amber-500/20 text-amber-200 font-bold px-2 py-0.5 rounded border border-amber-500/30 text-xs mx-1">${cantidad}</span> ${palabra}.</li>`;
+                    htmlAdvertencias += `<li>Columna <strong class="text-amber-400">${colReal}</strong> tiene <span class="bg-amber-500/20 text-amber-200 font-bold px-2 py-0.5 rounded border border-amber-500/30 text-xs mx-1">${cantidad}</span> celdas vacías.</li>`;
                 }
 
                 if (htmlAdvertencias !== "") {
@@ -489,10 +500,7 @@
 
                 let totalCeldasEsperadas = validosParaSubir.length * COLS_ADVERTENCIA.length;
                 let porcentaje = 100;
-                
-                if (totalCeldasEsperadas > 0) {
-                    porcentaje = ((1 - (totalCeldasVacias / totalCeldasEsperadas)) * 100);
-                }
+                if (totalCeldasEsperadas > 0) porcentaje = ((1 - (totalCeldasVacias / totalCeldasEsperadas)) * 100);
                 
                 let displayPorcentaje = porcentaje === 100 ? "100" : Math.max(0, porcentaje).toFixed(1);
                 document.getElementById('score-text').textContent = `${displayPorcentaje}%`;
@@ -500,13 +508,9 @@
                 const scoreCircle = document.getElementById('score-circle');
                 scoreCircle.classList.remove('text-emerald-500', 'text-amber-500', 'text-red-500', 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]', 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]', 'drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]');
 
-                if (porcentaje >= 99.5) {
-                    scoreCircle.classList.add('text-emerald-500', 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]');
-                } else if (porcentaje >= 80) {
-                    scoreCircle.classList.add('text-amber-500', 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]');
-                } else {
-                    scoreCircle.classList.add('text-red-500', 'drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]');
-                }
+                if (porcentaje >= 99.5) scoreCircle.classList.add('text-emerald-500', 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]');
+                else if (porcentaje >= 80) scoreCircle.classList.add('text-amber-500', 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]');
+                else scoreCircle.classList.add('text-red-500', 'drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]');
 
                 setTimeout(() => { scoreCircle.setAttribute('stroke-dasharray', `${Math.max(0, porcentaje)}, 100`); }, 150);
 
@@ -546,7 +550,7 @@
             if (datosListosParaEnviar.length === 0) return;
             
             const btn = document.getElementById('btn-enviar');
-            btn.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Guardando en la nube...`; 
+            btn.innerHTML = `Guardando en la nube...`; 
             btn.disabled = true;
             btn.classList.replace('bg-blue-600', 'bg-zinc-700');
             btn.classList.replace('hover:bg-blue-500', 'hover:bg-zinc-600');
@@ -558,6 +562,10 @@
                 btn.classList.replace('bg-zinc-700', 'bg-emerald-600');
                 btn.classList.replace('hover:bg-zinc-600', 'hover:bg-emerald-500');
                 
+                const timestampCarga = new Date().toLocaleString('es-PE', { hour12: false });
+                localStorage.setItem('fecha_ultima_carga_' + usuarioActualDNI, timestampCarga);
+                actualizarDisplayUltimaCarga(usuarioActualDNI);
+
                 setTimeout(() => {
                     document.getElementById('result-container').classList.add('hidden');
                     btn.innerHTML = "<span>🚀</span> Guardar en el Histórico Maestro";
