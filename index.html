@@ -223,7 +223,7 @@
             setTimeout(() => {
                 document.getElementById('login-container').classList.add('hidden');
                 const app = document.getElementById('app-container');
-                app.classList.remove('hidden');
+                app.remove('hidden');
                 document.getElementById('user-display').innerText = usuarioActualDNI;
                 
                 actualizarDisplayUltimaCarga(usuarioActualDNI);
@@ -418,13 +418,9 @@
                         return; 
                     }
 
-                    if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLinter] !== undefined) {
-                        if (HOMOLOGACION_FORZADA[idx][valorLimpio]) {
-                            valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
-                            filaDatos[idx] = valorLimpio;
-                        }
-                    } else if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
-                        valorLimpio = HOMOLOGACION_FORZADA[idx][valorLinter] || HOMOLOGACION_FORZADA[idx][valorLimpio];
+                    // CORREGIDO: Filtro de Homologación limpia sin errores de variables
+                    if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
+                        valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
                         filaDatos[idx] = valorLimpio; 
                     }
 
