@@ -48,7 +48,7 @@
                 <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
                 <p class="text-zinc-300 mt-1 flex items-center gap-2">
                     Sube tu archivo Excel para validar la estructura.
-                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Fuzzy AI + Filtro Experto de Capas</span>
+                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Fuzzy AI + Escudo Antiduplicados</span>
                 </p>
             </div>
             <div class="mt-4 md:mt-0 flex flex-col items-end gap-1.5">
@@ -143,10 +143,10 @@
     </div>
 
     <script>
-      // ====================================================================
-        // CONFIGURACIÓN BASE (URL DE GOOGLE APPS SCRIPT)
         // ====================================================================
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbxn8tfrp6i0ftdr7oYliv5_0_mEocM_MpjHKtYoeHvkxQLd2fPHltAbi0vdDLiMm4aK/exec"
+        // CONFIGURACIÓN BASE (URL DE GOOGLE APPS SCRIPT ACTUALIZADA)
+        // ====================================================================
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbxwXQcgXrPAo34IBqbxoR_QALdT0oPwY9jBg1u8adWfldXMByld8Y8MEbLwBxqQHCnp/exec";
         
         let usuarioActualDNI = ""; 
         
@@ -165,7 +165,6 @@
             }
         };
 
-        // Columna S (Índice 18) fuera de alertas y score de efectividad
         const COLS_ADVERTENCIA = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14]; 
         let datosListosParaEnviar = [];
 
@@ -338,8 +337,6 @@
             reader.onload = (e) => {
                 const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
                 const hoja = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // Extraemos en raw: true para mantener las fechas crudas en la columna A
                 const dataPlana = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "", raw: true });
                 procesarValidacion(dataPlana, hoja);
             };
@@ -375,10 +372,10 @@
             for (let i = 4; i < filas.length; i++) {
                 let filaDatos = [...filas[i]]; 
 
-                // INYECCIÓN QUIRÚRGICA: Forzamos la captura de la máscara formateada (.w) para Columnas D y G
+                // EXTRACCIÓN MÁSCARA FORMATEADA (.w) -> Solución para Columnas D y G
                 if (hoja) {
-                    let cellD = hoja[XLSX.utils.encode_cell({r: i, c: 3})]; // Columna D
-                    let cellG = hoja[XLSX.utils.encode_cell({r: i, c: 6})]; // Columna G
+                    let cellD = hoja[XLSX.utils.encode_cell({r: i, c: 3})]; 
+                    let cellG = hoja[XLSX.utils.encode_cell({r: i, c: 6})]; 
                     if (cellD && cellD.w !== undefined) filaDatos[3] = cellD.w;
                     if (cellG && cellG.w !== undefined) filaDatos[6] = cellG.w;
                 }
@@ -396,7 +393,6 @@
                 let numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
 
-                // Estandarizar fecha a corta
                 let fechaOriginal = filaDatos[0];
                 let fechaCortaTransformada = estandarizarFechaCorta(fechaOriginal);
                 filaDatos[0] = fechaCortaTransformada; 
@@ -422,8 +418,13 @@
                         return; 
                     }
 
-                    if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
-                        valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
+                    if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLinter] !== undefined) {
+                        if (HOMOLOGACION_FORZADA[idx][valorLimpio]) {
+                            valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
+                            filaDatos[idx] = valorLimpio;
+                        }
+                    } else if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
+                        valorLimpio = HOMOLOGACION_FORZADA[idx][valorLinter] || HOMOLOGACION_FORZADA[idx][valorLimpio];
                         filaDatos[idx] = valorLimpio; 
                     }
 
@@ -468,7 +469,7 @@
                         cadenaParaHuella += valCelda + "|"; 
                     }
 
-                    // ESTRUCTURA DIRECTA HACIA EL HISTÓRICO MAESTRO
+                    // DISTRIBUCIÓN ESTÁNDAR FIJA (T, U, V)
                     objetoLimpio["USER"] = usuarioActualDNI; // Columna T
                     objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); // Columna U
                     objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); // Columna V
