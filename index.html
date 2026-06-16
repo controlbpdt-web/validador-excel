@@ -48,7 +48,7 @@
                 <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
                 <p class="text-zinc-300 mt-1 flex items-center gap-2">
                     Sube tu archivo Excel para validar la estructura.
-                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Fuzzy AI + AntiDuplicados</span>
+                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Motor AntiDuplicados Activo</span>
                 </p>
             </div>
             <div class="mt-4 md:mt-0 flex flex-col items-end gap-1.5">
@@ -68,7 +68,6 @@
         </div>
 
         <div id="result-container" class="mt-8 hidden space-y-6">
-            
             <div id="error-section" class="hidden bg-red-950/40 p-6 rounded-xl border border-red-500/30 shadow-lg">
                 <div class="flex items-center gap-3 mb-4">
                     <span class="text-2xl">🚫</span>
@@ -140,16 +139,14 @@
                     <span>🚀</span> Guardar en el Histórico Maestro
                 </button>
             </div>
-            
         </div>
     </div>
 
     <script>
         // ====================================================================
-        // CONFIGURACIÓN BASE
+        // CONFIGURACIÓN BASE (URL DE GOOGLE APPS SCRIPT)
         // ====================================================================
-        // ENLACE NUEVO ACTUALIZADO
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbwjYeBe2P570XGyvK-hGWK6U_5NBiof37yjJptrrBgrqn_s5NvU001r-pnz3dhn4uHA/exec";
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbxn8tfrp6i0ftdr7oYliv5_0_mEocM_MpjHKtYoeHvkxQLd2fPHltAbi0vdDLiMm4aK/exec";
         
         let usuarioActualDNI = ""; 
         
@@ -158,18 +155,22 @@
             11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], 
             15: ["LIMA", "PROVINCIA"], 
             16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO", "RECOJO CLIENTE"], 
-            17: ["SECO", "REFRIGERADO"] 
+            17: ["SECO", "REFRIGERADO", "CLIMATIZADO"] // <-- NUEVO VALOR AGREGADO
         };
 
         const HOMOLOGACION_FORZADA = {
-            11: { "ADIUM": "TECNOFARMA" }
+            11: { 
+                "ADIUM": "TECNOFARMA",
+                "ELEA PERU": "ELEA" // <-- NUEVA REGLA AGREGADA
+            }
         };
 
-        const COLS_ADVERTENCIA = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 18]; 
+        // COLUMNA S (Índice 18) ELIMINADA DE LA LISTA DE ADVERTENCIAS
+        const COLS_ADVERTENCIA = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14]; 
         let datosListosParaEnviar = [];
 
         // ====================================================================
-        // GESTIÓN DE SESIÓN Y REGISTRO VISUAL DE CARGAS
+        // GESTIÓN DE SESIÓN Y LOGIN
         // ====================================================================
         const inputDNI = document.getElementById('dni-input');
         const btnLogin = document.getElementById('btn-login');
@@ -180,9 +181,7 @@
             if (sesionGuardada) {
                 const sesion = JSON.parse(sesionGuardada);
                 const ahora = Date.now();
-                const limiteTiempo = TIEMPO_SESION_HORAS * 60 * 60 * 1000;
-                
-                if ((ahora - sesion.timestamp) < limiteTiempo) {
+                if ((ahora - sesion.timestamp) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000)) {
                     iniciarApp(sesion.dni);
                 } else {
                     localStorage.removeItem('validador_sesion_segura');
@@ -212,7 +211,6 @@
                     setTimeout(() => inputDNI.classList.remove('animate-bounce'), 500);
                 }
             } catch (error) {
-                console.error(error);
                 document.getElementById('login-network-error').classList.remove('hidden');
             } finally {
                 btnLogin.innerHTML = `Ingresar al Sistema`;
@@ -255,9 +253,8 @@
         };
 
         // ====================================================================
-        // ALGORITMOS DE SELECCIÓN (FECHAS, FUZZY Y HASHING)
+        // ALGORITMOS: HUELLA, FECHAS Y FUZZY
         // ====================================================================
-        
         function generarHuellaDigital(textoFila) {
             let hash = 0;
             for (let i = 0; i < textoFila.length; i++) {
@@ -322,7 +319,7 @@
         const limpiarTexto = (txt) => txt !== undefined && txt !== null ? String(txt).trim().toUpperCase() : "";
 
         // ====================================================================
-        // PROCESAMIENTO EXCEL
+        // DRAG AND DROP EXCEL
         // ====================================================================
         const fileInput = document.getElementById('file-input');
         const dropZone = document.getElementById('drop-zone');
@@ -389,7 +386,6 @@
                 let numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
 
-                // Estandarizar fecha a corta
                 let fechaOriginal = filaDatos[0];
                 let fechaCortaTransformada = estandarizarFechaCorta(fechaOriginal);
                 filaDatos[0] = fechaCortaTransformada; 
@@ -449,26 +445,24 @@
                         }
                     });
 
-                    // CONSTRUCCIÓN DEL OBJETO CON ORDEN FIJO
-let objetoLimpio = {};
-let cadenaParaHuella = "";
+                    let objetoLimpio = {};
+                    let cadenaParaHuella = "";
+                    
+                    for (let c = 0; c <= 18; c++) {
+                        let nombreKey = encabezadosKeys[c];
+                        let keyFinal = nombreKey ? String(nombreKey).trim() : `Columna_${letraColumna(c)}`; 
+                        let valCelda = filaDatos[c] !== undefined ? String(filaDatos[c]).trim() : "";
+                        
+                        objetoLimpio[keyFinal] = valCelda;
+                        cadenaParaHuella += valCelda + "|"; 
+                    }
 
-// 1. Datos del Excel (Columnas A - S)
-for (let c = 0; c <= 18; c++) {
-    let nombreKey = encabezadosKeys[c];
-    let keyFinal = nombreKey ? String(nombreKey).trim() : `Columna_${letraColumna(c)}`; 
-    let valCelda = filaDatos[c] !== undefined ? String(filaDatos[c]).trim() : "";
-    
-    objetoLimpio[keyFinal] = valCelda;
-    cadenaParaHuella += valCelda + "|"; 
-}
+                    // CORRECCIÓN DEL ORDEN DE COLUMNAS PARA GOOGLE SHEETS
+                    objetoLimpio["USER"] = usuarioActualDNI; // Columna T
+                    objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); // Columna U
+                    objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); // Columna V
 
-// 2. Auditoría al final (Columnas T, U, V)
-objetoLimpio["USER"] = usuarioActualDNI;                   // Columna T
-objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); // Columna U
-objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); // Columna V (Huella al final)
-
-validosParaSubir.push(objetoLimpio);
+                    validosParaSubir.push(objetoLimpio);
                     
                     let linea = limpiarTexto(filaDatos[11]);
                     if (conteoLineas[linea] !== undefined) conteoLineas[linea]++;
