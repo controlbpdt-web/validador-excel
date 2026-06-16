@@ -1,1 +1,590 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Validador de Consolidados</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #000000; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+        .svg-circle { transform: rotate(-90deg); transform-origin: 50% 50%; }
+    </style>
+</head>
+<body class="bg-black min-h-screen p-6 font-sans text-zinc-100 selection:bg-blue-500/30 flex flex-col justify-center">
 
+    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-40 bg-blue-600/10 blur-[150px] pointer-events-none z-0"></div>
+
+    <div id="login-container" class="relative z-10 flex justify-center items-center w-full max-w-sm mx-auto transition-all duration-500">
+        <div class="bg-zinc-950 p-10 rounded-2xl shadow-2xl shadow-black border border-zinc-800/80 w-full text-center">
+            <div class="mb-6 flex justify-center">
+                <span class="text-6xl drop-shadow-[0_0_15px_rgba(37,99,235,0.3)]">🔐</span>
+            </div>
+            <h2 class="text-2xl font-extrabold text-white mb-2 tracking-tight">Acceso Restringido</h2>
+            <p class="text-zinc-400 text-sm mb-8">Ingresa tu número de DNI para acceder al validador.</p>
+            
+            <div class="text-left mb-6">
+                <label class="block text-white text-sm font-bold mb-2 ml-1">Número de DNI</label>
+                <input type="text" id="dni-input" maxlength="8" 
+                    class="w-full bg-black text-white border-2 border-zinc-700 rounded-xl p-4 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-center text-2xl tracking-[0.25em] font-bold" 
+                    placeholder="••••••••" 
+                    onkeypress="return event.charCode >= 48 && event.charCode <= 57" autocomplete="off">
+                <p id="login-error" class="text-red-400 text-sm mt-2 hidden font-medium text-center">❌ DNI no autorizado o inválido.</p>
+                <p id="login-network-error" class="text-amber-400 text-sm mt-2 hidden font-medium text-center">⚠️ Error de conexión con el servidor.</p>
+            </div>
+
+            <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.3)] transition-all text-lg flex justify-center items-center gap-2">
+                Ingresar al Sistema
+            </button>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden bg-zinc-950 p-8 rounded-2xl shadow-2xl shadow-black w-full max-w-5xl mx-auto border border-zinc-800/80 relative overflow-hidden transition-all duration-500 z-10">
+        
+        <div class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-zinc-800/80 pb-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
+                <p class="text-zinc-300 mt-1 flex items-center gap-2">
+                    Sube tu archivo Excel para validar la estructura.
+                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Fuzzy AI + Escudo Antiduplicados</span>
+                </p>
+            </div>
+            <div class="mt-4 md:mt-0 flex flex-col items-end gap-1.5">
+                <div class="bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex flex-wrap items-center gap-2 max-w-md justify-end">
+                    <span class="text-zinc-400 text-sm">Usuario:</span>
+                    <span id="user-display" class="text-white font-bold tracking-wider mr-1"></span>
+                    <span id="last-upload-display" class="text-zinc-400 text-xs border-l border-zinc-700 pl-2 italic"></span>
+                </div>
+                <button id="btn-logout" class="text-zinc-500 hover:text-red-400 text-xs font-bold transition-colors underline decoration-zinc-700 underline-offset-4">Cerrar Sesión Segura</button>
+            </div>
+        </div>
+        
+        <div id="drop-zone" class="border-2 border-dashed border-zinc-600 bg-black/60 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-zinc-900/80 transition-all duration-300 group">
+            <input type="file" id="file-input" class="hidden" accept=".xlsx, .xls">
+            <div class="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-lg opacity-80 group-hover:opacity-100">📄</div>
+            <p class="text-white font-medium text-lg">Arrastra tu Excel aquí o <span class="text-blue-400 font-bold group-hover:text-blue-300 transition-colors">haz clic para subir</span></p>
+        </div>
+
+        <div id="result-container" class="mt-8 hidden space-y-6">
+            <div id="error-section" class="hidden bg-red-950/40 p-6 rounded-xl border border-red-500/30 shadow-lg">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-2xl">🚫</span>
+                    <h3 class="text-red-400 font-bold text-xl">Errores Críticos Detectados</h3>
+                </div>
+                <p class="text-red-200 mb-4 text-sm font-medium">El archivo no se puede subir. Corrige los siguientes errores en tu Excel y vuelve a intentarlo:</p>
+                <div class="max-h-64 overflow-y-auto rounded border border-red-500/20 bg-black/60">
+                    <table class="w-full text-sm text-left text-white border-collapse">
+                        <thead class="bg-red-900/60 sticky top-0 backdrop-blur-md">
+                            <tr>
+                                <th class="p-3 border-b border-red-500/20 w-24 text-center text-red-100 font-bold">Fila</th>
+                                <th class="p-3 border-b border-red-500/20 w-32 text-center text-red-100 font-bold">Columna</th>
+                                <th class="p-3 border-b border-red-500/20 text-red-100 font-bold">Detalle del Error</th>
+                            </tr>
+                        </thead>
+                        <tbody id="error-table-body" class="divide-y divide-red-500/10"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="warning-section" class="hidden bg-amber-950/40 p-6 rounded-xl border border-amber-500/30 shadow-lg">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-2xl">⚠️</span>
+                    <h3 class="text-amber-400 font-bold text-lg">Observaciones (Campos Vacíos)</h3>
+                </div>
+                <p class="text-amber-100 mb-3 text-sm font-medium">El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:</p>
+                <div class="max-h-40 overflow-y-auto bg-black/60 p-4 rounded border border-amber-500/20 text-sm">
+                    <ul id="warning-list" class="list-disc pl-5 space-y-2 text-white tracking-wide"></ul>
+                </div>
+            </div>
+
+            <div id="success-section" class="hidden bg-emerald-950/30 p-6 rounded-xl border border-emerald-500/30 shadow-lg">
+                <div class="flex items-center gap-3 mb-6">
+                    <span class="text-2xl">✅</span>
+                    <h3 class="text-emerald-400 font-bold text-xl tracking-wide">¡Validación Estricta Superada!</h3>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div class="bg-black/60 p-5 rounded-xl border border-emerald-500/20 flex flex-col justify-center items-center">
+                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-1">Filas Listas</p>
+                        <p id="total-filas" class="text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">0</p>
+                    </div>
+
+                    <div class="bg-black/60 p-5 rounded-xl border border-blue-500/20 flex flex-col justify-center items-center">
+                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3">Calidad de Datos</p>
+                        <div class="w-24 h-24 relative flex justify-center items-center">
+                            <svg viewBox="0 0 36 36" class="w-full h-full svg-circle">
+                                <path class="text-zinc-800" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path id="score-circle" class="transition-all duration-1000 ease-out" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" fill="none" stroke="currentColor" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
+                            <div class="absolute inset-0 flex justify-center items-center">
+                                <span id="score-text" class="text-xl font-black text-white">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-black/60 p-5 rounded-xl border border-indigo-500/20 flex flex-col justify-center items-center md:items-start">
+                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3 border-b border-zinc-700 pb-2 w-full text-center md:text-left">Despacho</p>
+                        <div id="conteo-despacho" class="flex flex-wrap justify-center md:justify-start gap-3 text-sm w-full"></div>
+                    </div>
+                </div>
+
+                <div class="bg-black/60 p-5 rounded-xl border border-zinc-700 mb-8">
+                    <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-4 border-b border-zinc-700 pb-2">Líneas</p>
+                    <div id="conteo-lineas" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"></div>
+                </div>
+
+                <button id="btn-enviar" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50">
+                    <span>🚀</span> Guardar en el Histórico Maestro
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ====================================================================
+        // CONFIGURACIÓN BASE (ENLACE ACTUALIZADO)
+        // ====================================================================
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbxwXQcgXrPAo34IBqbxoR_QALdT0oPwY9jBg1u8adWfldXMByld8Y8MEbLwBxqQHCnp/exec";
+        
+        let usuarioActualDNI = ""; 
+        
+        const VALORES_PERMITIDOS = {
+            1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"], 
+            11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], 
+            15: ["LIMA", "PROVINCIA"], 
+            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO", "RECOJO CLIENTE"], 
+            17: ["SECO", "REFRIGERADO", "CLIMATIZADO"] 
+        };
+
+        const HOMOLOGACION_FORZADA = {
+            11: { 
+                "ADIUM": "TECNOFARMA",
+                "ELEA PERU": "ELEA" 
+            }
+        };
+
+        const COLS_ADVERTENCIA = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14]; 
+        let datosListosParaEnviar = [];
+
+        // ====================================================================
+        // GESTIÓN DE SESIÓN Y LOGIN
+        // ====================================================================
+        const inputDNI = document.getElementById('dni-input');
+        const btnLogin = document.getElementById('btn-login');
+        const TIEMPO_SESION_HORAS = 8;
+        
+        window.onload = () => {
+            const sesionGuardada = localStorage.getItem('validador_sesion_segura');
+            if (sesionGuardada) {
+                const sesion = JSON.parse(sesionGuardada);
+                const ahora = Date.now();
+                if ((ahora - sesion.timestamp) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000)) {
+                    iniciarApp(sesion.dni);
+                } else {
+                    localStorage.removeItem('validador_sesion_segura');
+                }
+            }
+        };
+
+        async function procesarLogin() {
+            const dni = inputDNI.value.trim();
+            if(dni.length === 0) return;
+
+            document.getElementById('login-error').classList.add('hidden');
+            document.getElementById('login-network-error').classList.add('hidden');
+            btnLogin.innerHTML = `Validando DNI...`;
+            btnLogin.disabled = true;
+
+            try {
+                const respuesta = await fetch(URL_GAS + "?action=login&dni=" + dni);
+                const datos = await respuesta.json();
+
+                if (datos.autorizado) {
+                    localStorage.setItem('validador_sesion_segura', JSON.stringify({ dni: dni, timestamp: Date.now() }));
+                    iniciarApp(dni);
+                } else {
+                    document.getElementById('login-error').classList.remove('hidden');
+                    inputDNI.classList.add('animate-bounce');
+                    setTimeout(() => inputDNI.classList.remove('animate-bounce'), 500);
+                }
+            } catch (error) {
+                document.getElementById('login-network-error').classList.remove('hidden');
+            } finally {
+                btnLogin.innerHTML = `Ingresar al Sistema`;
+                btnLogin.disabled = false;
+            }
+        }
+
+        function iniciarApp(dniValidado) {
+            usuarioActualDNI = dniValidado;
+            document.getElementById('login-container').classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                document.getElementById('login-container').classList.add('hidden');
+                const app = document.getElementById('app-container');
+                app.classList.remove('hidden'); // CORREGIDO: Renderizado nativo asegurado
+                document.getElementById('user-display').innerText = usuarioActualDNI;
+                
+                actualizarDisplayUltimaCarga(usuarioActualDNI);
+
+                app.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(() => { app.classList.remove('opacity-0', 'translate-y-4'); }, 50);
+            }, 400);
+        }
+
+        function actualizarDisplayUltimaCarga(dni) {
+            const ultimaCarga = localStorage.getItem('fecha_ultima_carga_' + dni);
+            const display = document.getElementById('last-upload-display');
+            if (ultimaCarga) {
+                display.innerHTML = `Última carga: <span class="text-blue-400 font-semibold">${ultimaCarga}</span>`;
+            } else {
+                display.innerHTML = `Sin cargas hoy`;
+            }
+        }
+
+        document.getElementById('btn-login').onclick = procesarLogin;
+        inputDNI.addEventListener('keypress', function (e) { if (e.key === 'Enter') { e.preventDefault(); procesarLogin(); }});
+
+        document.getElementById('btn-logout').onclick = () => {
+            localStorage.removeItem('validador_sesion_segura');
+            location.reload(); 
+        };
+
+        // ====================================================================
+        // ALGORITMOS: HUELLA, FECHAS Y FUZZY
+        // ====================================================================
+        function generarHuellaDigital(textoFila) {
+            let hash = 0;
+            for (let i = 0; i < textoFila.length; i++) {
+                const char = textoFila.charCodeAt(i);
+                hash = (hash << 5) - hash + char;
+                hash |= 0; 
+            }
+            return "ID_" + Math.abs(hash);
+        }
+
+        const estandarizarFechaCorta = (valor) => {
+            if (!valor) return "";
+            if (valor instanceof Date) {
+                let d = String(valor.getDate()).padStart(2, '0');
+                let m = String(valor.getMonth() + 1).padStart(2, '0'); 
+                let y = valor.getFullYear();
+                return `${d}/${m}/${y}`;
+            }
+            if (typeof valor === 'number') {
+                let fechaObj = new Date((valor - (25567 + 2)) * 86400 * 1000);
+                fechaObj = new Date(fechaObj.getTime() + (fechaObj.getTimezoneOffset() * 60000));
+                let d = String(fechaObj.getDate()).padStart(2, '0');
+                let m = String(fechaObj.getMonth() + 1).padStart(2, '0');
+                let y = fechaObj.getFullYear();
+                return `${d}/${m}/${y}`;
+            }
+            return String(valor).trim();
+        };
+
+        const esFechaValida = (valor) => {
+            if (!valor) return false;
+            const regexFecha = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/; 
+            return regexFecha.test(String(valor).trim());
+        };
+
+        function calcularSimilitud(s1, s2) {
+            let longer = s1; let shorter = s2;
+            if (s1.length < s2.length) { longer = s2; shorter = s1; }
+            let longerLength = longer.length;
+            if (longerLength == 0) return 1.0;
+            let costs = new Array();
+            for (let i = 0; i <= longer.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= shorter.length; j++) {
+                    if (i == 0) costs[j] = j;
+                    else {
+                        if (j > 0) {
+                            let newValue = costs[j - 1];
+                            if (longer.charAt(i - 1) != shorter.charAt(j - 1)) {
+                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                            }
+                            costs[j - 1] = lastValue; lastValue = newValue;
+                        }
+                    }
+                }
+                if (i > 0) costs[shorter.length] = lastValue;
+            }
+            return (longerLength - costs[shorter.length]) / parseFloat(longerLength);
+        }
+
+        const letraColumna = (index) => String.fromCharCode(65 + index);
+        const limpiarTexto = (txt) => txt !== undefined && txt !== null ? String(txt).trim().toUpperCase() : "";
+
+        // ====================================================================
+        // DRAG AND DROP EXCEL
+        // ====================================================================
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+
+        dropZone.onclick = () => fileInput.click();
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500', 'bg-zinc-900'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('border-blue-500', 'bg-zinc-900'); });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault(); dropZone.classList.remove('border-blue-500', 'bg-zinc-900');
+            if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; procesarArchivo(fileInput.files[0]); }
+        });
+        fileInput.onchange = (e) => { if (e.target.files[0]) procesarArchivo(e.target.files[0]); };
+
+        function procesarArchivo(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+                const hoja = workbook.Sheets[workbook.SheetNames[0]];
+                const dataPlana = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "", raw: true });
+                procesarValidacion(dataPlana, hoja);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ====================================================================
+        // VALIDACIÓN PRINCIPAL
+        // ====================================================================
+        function procesarValidacion(filas, hoja) {
+            let erroresBloqueantes = [];
+            let conteoVaciosPorColumna = {}; 
+            let validosParaSubir = [];
+            let conteoLineas = {};
+            let conteoDespacho = { "LIMA": 0, "PROVINCIA": 0 }; 
+            let totalCeldasVacias = 0; 
+            
+            VALORES_PERMITIDOS[11].forEach(l => conteoLineas[l] = 0); 
+
+            document.getElementById('score-circle').setAttribute('stroke-dasharray', '0, 100');
+            document.getElementById('result-container').className = "mt-8 hidden space-y-6";
+            document.getElementById('error-section').classList.add('hidden');
+            document.getElementById('warning-section').classList.add('hidden');
+            document.getElementById('success-section').classList.add('hidden');
+
+            if (filas.length < 5) {
+                alert("El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
+                return;
+            }
+
+            const encabezadosKeys = filas[3]; 
+
+            for (let i = 4; i < filas.length; i++) {
+                let filaDatos = [...filas[i]]; 
+
+                // EXTRACCIÓN MÁSCARA FORMATEADA (.w) -> Solución para Columnas D y G
+                if (hoja) {
+                    let cellD = hoja[XLSX.utils.encode_cell({r: i, c: 3})]; 
+                    let cellG = hoja[XLSX.utils.encode_cell({r: i, c: 6})]; 
+                    if (cellD && cellD.w !== undefined) filaDatos[3] = cellD.w;
+                    if (cellG && cellG.w !== undefined) filaDatos[6] = cellG.w;
+                }
+                
+                let filaVacia = true;
+                for(let c = 0; c <= 18; c++) {
+                    if(String(filaDatos[c] || "").trim() !== "") filaVacia = false;
+                }
+                if(filaVacia) continue;
+
+                let valC = limpiarTexto(filaDatos[2]);
+                let valE = limpiarTexto(filaDatos[4]);
+                if (valC === "" && valE === "") continue; 
+
+                let numFilaVisual = i + 1;
+                let erroresEnEstaFila = false;
+
+                let fechaOriginal = filaDatos[0];
+                let fechaCortaTransformada = estandarizarFechaCorta(fechaOriginal);
+                filaDatos[0] = fechaCortaTransformada; 
+
+                if (!esFechaValida(fechaCortaTransformada)) {
+                    erroresBloqueantes.push({ fila: numFilaVisual, col: "A", msg: "Debe ser una fecha válida." });
+                    erroresEnEstaFila = true;
+                }
+
+                if (limpiarTexto(filaDatos[2]) === "") {
+                    erroresBloqueantes.push({ fila: numFilaVisual, col: "C", msg: "Celda vacía obligatoria (Entrega)." });
+                    erroresEnEstaFila = true;
+                }
+
+                Object.keys(VALORES_PERMITIDOS).forEach(idxStr => {
+                    let idx = parseInt(idxStr);
+                    let valorCrudo = filaDatos[idx];
+                    let valorLimpio = limpiarTexto(valorCrudo);
+                    
+                    if (valorLimpio === "") {
+                        erroresBloqueantes.push({ fila: numFilaVisual, col: letraColumna(idx), msg: "Celda vacía obligatoria." });
+                        erroresEnEstaFila = true;
+                        return; 
+                    }
+
+                    // CORREGIDO: Evaluación segura de diccionarios
+                    if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
+                        valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
+                        filaDatos[idx] = valorLimpio; 
+                    }
+
+                    if (!VALORES_PERMITIDOS[idx].includes(valorLimpio)) {
+                        let mejorSimilitud = 0; let mejorCoincidencia = "";
+                        VALORES_PERMITIDOS[idx].forEach(permitido => {
+                            let similitud = calcularSimilitud(valorLimpio, permitido);
+                            if (similitud > mejorSimilitud) { mejorSimilitud = similitud; mejorCoincidencia = permitido; }
+                        });
+
+                        if (mejorSimilitud >= 0.49) {
+                            filaDatos[idx] = mejorCoincidencia; 
+                        } else {
+                            let porcentajeFallo = Math.round(mejorSimilitud * 100);
+                            let mensaje = `Valor inválido: "${valorCrudo}". Similitud más alta: ${porcentajeFallo}%`;
+                            erroresBloqueantes.push({ fila: numFilaVisual, col: letraColumna(idx), msg: mensaje });
+                            erroresEnEstaFila = true;
+                        }
+                    } else {
+                        filaDatos[idx] = valorLimpio; 
+                    }
+                });
+
+                if (!erroresEnEstaFila) {
+                    COLS_ADVERTENCIA.forEach(idx => {
+                        if (String(filaDatos[idx] || "").trim() === "") {
+                            let nombreEncabezado = encabezadosKeys[idx] ? String(encabezadosKeys[idx]).trim() : `Columna ${letraColumna(idx)}`;
+                            conteoVaciosPorColumna[nombreEncabezado] = (conteoVaciosPorColumna[nombreEncabezado] || 0) + 1;
+                            totalCeldasVacias++; 
+                        }
+                    });
+
+                    let objetoLimpio = {};
+                    let cadenaParaHuella = "";
+                    
+                    for (let c = 0; c <= 18; c++) {
+                        let nombreKey = encabezadosKeys[c];
+                        let keyFinal = nombreKey ? String(nombreKey).trim() : `Columna_${letraColumna(c)}`; 
+                        let valCelda = filaDatos[c] !== undefined ? String(filaDatos[c]).trim() : "";
+                        
+                        objetoLimpio[keyFinal] = valCelda;
+                        cadenaParaHuella += valCelda + "|"; 
+                    }
+
+                    // ACPLAMIENTO DE LLAVES EXACTO PARA EL PARSEO DINÁMICO DEL SERVIDOR
+                    objetoLimpio["USER"] = usuarioActualDNI; 
+                    objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); 
+                    objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); 
+
+                    validosParaSubir.push(objetoLimpio);
+                    
+                    let linea = limpiarTexto(filaDatos[11]);
+                    if (conteoLineas[linea] !== undefined) conteoLineas[linea]++;
+
+                    let tipoDespacho = limpiarTexto(filaDatos[15]);
+                    if (conteoDespacho[tipoDespacho] !== undefined) conteoDespacho[tipoDespacho]++;
+                }
+            }
+
+            document.getElementById('result-container').classList.remove('hidden');
+
+            if (erroresBloqueantes.length > 0) {
+                document.getElementById('error-section').classList.remove('hidden');
+                document.getElementById('error-table-body').innerHTML = erroresBloqueantes.map(e => `
+                    <tr class="border-b border-red-500/10 hover:bg-red-950/80 transition-colors">
+                        <td class="p-3 border-r border-red-500/10 font-black text-center text-red-400">${e.fila}</td>
+                        <td class="p-3 border-r border-red-500/10 font-bold text-center text-white">${e.col}</td>
+                        <td class="p-3 text-red-200 font-medium">${e.msg}</td>
+                    </tr>
+                `).join('');
+                fileInput.value = ""; 
+            } else {
+                
+                let htmlAdvertencias = "";
+                for (let colReal in conteoVaciosPorColumna) {
+                    let cantidad = conteoVaciosPorColumna[colReal];
+                    htmlAdvertencias += `<li>Columna <strong class="text-amber-400">${colReal}</strong> tiene <span class="bg-amber-500/20 text-amber-200 font-bold px-2 py-0.5 rounded border border-amber-500/30 text-xs mx-1">${cantidad}</span> celdas vacías.</li>`;
+                }
+
+                if (htmlAdvertencias !== "") {
+                    document.getElementById('warning-section').classList.remove('hidden');
+                    document.getElementById('warning-list').innerHTML = htmlAdvertencias;
+                }
+
+                let totalCeldasEsperadas = validosParaSubir.length * COLS_ADVERTENCIA.length;
+                let porcentaje = 100;
+                if (totalCeldasEsperadas > 0) porcentaje = ((1 - (totalCeldasVacias / totalCeldasEsperadas)) * 100);
+                
+                let displayPorcentaje = porcentaje === 100 ? "100" : Math.max(0, porcentaje).toFixed(1);
+                document.getElementById('score-text').textContent = `${displayPorcentaje}%`;
+
+                const scoreCircle = document.getElementById('score-circle');
+                scoreCircle.className = "transition-all duration-1000 ease-out";
+
+                if (porcentaje >= 99.5) scoreCircle.classList.add('text-emerald-500', 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]');
+                else if (porcentaje >= 80) scoreCircle.classList.add('text-amber-500', 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]');
+                else scoreCircle.classList.add('text-red-500', 'drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]');
+
+                setTimeout(() => { scoreCircle.setAttribute('stroke-dasharray', `${Math.max(0, porcentaje)}, 100`); }, 150);
+
+                document.getElementById('success-section').classList.remove('hidden');
+                document.getElementById('total-filas').innerText = validosParaSubir.length;
+                
+                let htmlDespacho = "";
+                for (const [despacho, cantidad] of Object.entries(conteoDespacho)) {
+                    if (cantidad > 0) {
+                        htmlDespacho += `<div class="bg-blue-900/30 border border-blue-500/40 px-4 py-2 rounded-xl flex items-center gap-3">
+                            <span class="font-bold text-white">${despacho}</span>
+                            <span class="bg-blue-500 text-white py-0.5 px-3 rounded-full text-xs font-black shadow-[0_0_10px_rgba(59,130,246,0.5)]">${cantidad}</span>
+                        </div>`;
+                    }
+                }
+                document.getElementById('conteo-despacho').innerHTML = htmlDespacho || '<p class="text-zinc-500 italic text-sm">Sin datos</p>';
+
+                let htmlConteo = "";
+                for (const [linea, cantidad] of Object.entries(conteoLineas)) {
+                    if (cantidad > 0) {
+                        htmlConteo += `<div class="bg-black/80 border border-zinc-700 px-3 py-2 rounded-lg flex justify-between items-center hover:border-indigo-400/60 transition-colors">
+                            <span class="font-bold text-white truncate mr-2" title="${linea}">${linea}</span>
+                            <span class="bg-indigo-500/20 text-indigo-300 py-1 px-2 rounded-md font-black border border-indigo-500/30">${cantidad}</span>
+                        </div>`;
+                    }
+                }
+                document.getElementById('conteo-lineas').innerHTML = htmlConteo || '<p class="text-zinc-500 italic col-span-2">Sin líneas validadas.</p>';
+                
+                datosListosParaEnviar = validosParaSubir;
+            }
+        }
+
+        // ====================================================================
+        // ENVÍO AL BACKEND
+        // ====================================================================
+        document.getElementById('btn-enviar').onclick = () => {
+            if (datosListosParaEnviar.length === 0) return;
+            
+            const btn = document.getElementById('btn-enviar');
+            btn.innerHTML = `Guardando en la nube...`; 
+            btn.disabled = true;
+            btn.className = "w-full text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex justify-center items-center gap-2 text-xl border bg-zinc-700 hover:bg-zinc-600 border-zinc-500";
+
+            fetch(URL_GAS, { method: "POST", mode: "no-cors", body: JSON.stringify(datosListosParaEnviar) })
+            .then(() => { 
+                btn.innerHTML = "✅ ¡Datos Guardados Exitosamente!";
+                btn.className = "w-full text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex justify-center items-center gap-2 text-xl border bg-emerald-600 hover:bg-emerald-500 border-emerald-400";
+                
+                const timestampCarga = new Date().toLocaleString('es-PE', { hour12: false });
+                localStorage.setItem('fecha_ultima_carga_' + usuarioActualDNI, timestampCarga);
+                actualizarDisplayUltimaCarga(usuarioActualDNI);
+
+                setTimeout(() => {
+                    document.getElementById('result-container').className = "mt-8 hidden space-y-6";
+                    btn.innerHTML = "<span>🚀</span> Guardar en el Histórico Maestro";
+                    btn.disabled = false;
+                    btn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50";
+                    fileInput.value = "";
+                    datosListosParaEnviar = [];
+                }, 4000);
+            }).catch(error => {
+                alert("Hubo un problema de conexión. Inténtalo de nuevo.");
+                btn.innerHTML = "<span>🔄</span> Reintentar Guardado";
+                btn.className = "w-full text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex justify-center items-center gap-2 text-xl border bg-red-600 hover:bg-red-500 border-red-400";
+                btn.disabled = false;
+            });
+        };
+    </script>
+</body>
+</html>
