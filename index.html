@@ -223,7 +223,8 @@
             setTimeout(() => {
                 document.getElementById('login-container').classList.add('hidden');
                 const app = document.getElementById('app-container');
-                app.remove('hidden');
+                // CORRECCIÓN: Usar classList.remove para que no elimine el bloque
+                app.classList.remove('hidden'); 
                 document.getElementById('user-display').innerText = usuarioActualDNI;
                 
                 actualizarDisplayUltimaCarga(usuarioActualDNI);
@@ -418,7 +419,6 @@
                         return; 
                     }
 
-                    // CORREGIDO: Filtro de Homologación limpia sin errores de variables
                     if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
                         valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
                         filaDatos[idx] = valorLimpio; 
@@ -466,9 +466,9 @@
                     }
 
                     // DISTRIBUCIÓN ESTÁNDAR FIJA (T, U, V)
-                    objetoLimpio["USER"] = usuarioActualDNI; // Columna T
-                    objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); // Columna U
-                    objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); // Columna V
+                    objetoLimpio["USER"] = usuarioActualDNI; 
+                    objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); 
+                    objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); 
 
                     validosParaSubir.push(objetoLimpio);
                     
