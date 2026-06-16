@@ -48,7 +48,7 @@
                 <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
                 <p class="text-zinc-300 mt-1 flex items-center gap-2">
                     Sube tu archivo Excel para validar la estructura.
-                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Motor AntiDuplicados Activo</span>
+                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Fuzzy AI + Filtro Experto de Capas</span>
                 </p>
             </div>
             <div class="mt-4 md:mt-0 flex flex-col items-end gap-1.5">
@@ -146,7 +146,7 @@
         // ====================================================================
         // CONFIGURACIÓN BASE (URL DE GOOGLE APPS SCRIPT)
         // ====================================================================
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbxO58UtrVtYnlmvjW5ZqM8Slk6ab3E_WT0ENvTPOqrtFcnypYhw5A8dvGQvDf41HFTs/exec";
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbxn8tfrp6i0ftdr7oYliv5_0_mEocM_MpjHKtYoeHvkxQLd2fPHltAbi0vdDLiMm4aK/exec";
         
         let usuarioActualDNI = ""; 
         
@@ -155,17 +155,17 @@
             11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], 
             15: ["LIMA", "PROVINCIA"], 
             16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO", "RECOJO CLIENTE"], 
-            17: ["SECO", "REFRIGERADO", "CLIMATIZADO"] // <-- NUEVO VALOR AGREGADO
+            17: ["SECO", "REFRIGERADO", "CLIMATIZADO"] 
         };
 
         const HOMOLOGACION_FORZADA = {
             11: { 
                 "ADIUM": "TECNOFARMA",
-                "ELEA PERU": "ELEA" // <-- NUEVA REGLA AGREGADA
+                "ELEA PERU": "ELEA" 
             }
         };
 
-        // COLUMNA S (Índice 18) ELIMINADA DE LA LISTA DE ADVERTENCIAS
+        // Columna S (Índice 18) fuera de alertas y score de efectividad
         const COLS_ADVERTENCIA = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14]; 
         let datosListosParaEnviar = [];
 
@@ -338,8 +338,10 @@
             reader.onload = (e) => {
                 const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
                 const hoja = workbook.Sheets[workbook.SheetNames[0]];
+                
+                // Extraemos en raw: true para mantener las fechas crudas en la columna A
                 const dataPlana = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "", raw: true });
-                procesarValidacion(dataPlana);
+                procesarValidacion(dataPlana, hoja);
             };
             reader.readAsArrayBuffer(file);
         }
@@ -347,7 +349,7 @@
         // ====================================================================
         // VALIDACIÓN PRINCIPAL
         // ====================================================================
-        function procesarValidacion(filas) {
+        function procesarValidacion(filas, hoja) {
             let erroresBloqueantes = [];
             let conteoVaciosPorColumna = {}; 
             let validosParaSubir = [];
@@ -358,7 +360,7 @@
             VALORES_PERMITIDOS[11].forEach(l => conteoLineas[l] = 0); 
 
             document.getElementById('score-circle').setAttribute('stroke-dasharray', '0, 100');
-            document.getElementById('result-container').classList.remove('hidden');
+            document.getElementById('result-container').className = "mt-8 hidden space-y-6";
             document.getElementById('error-section').classList.add('hidden');
             document.getElementById('warning-section').classList.add('hidden');
             document.getElementById('success-section').classList.add('hidden');
@@ -372,8 +374,16 @@
 
             for (let i = 4; i < filas.length; i++) {
                 let filaDatos = [...filas[i]]; 
-                let filaVacia = true;
+
+                // INYECCIÓN QUIRÚRGICA: Forzamos la captura de la máscara formateada (.w) para Columnas D y G
+                if (hoja) {
+                    let cellD = hoja[XLSX.utils.encode_cell({r: i, c: 3})]; // Columna D
+                    let cellG = hoja[XLSX.utils.encode_cell({r: i, c: 6})]; // Columna G
+                    if (cellD && cellD.w !== undefined) filaDatos[3] = cellD.w;
+                    if (cellG && cellG.w !== undefined) filaDatos[6] = cellG.w;
+                }
                 
+                let filaVacia = true;
                 for(let c = 0; c <= 18; c++) {
                     if(String(filaDatos[c] || "").trim() !== "") filaVacia = false;
                 }
@@ -386,6 +396,7 @@
                 let numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
 
+                // Estandarizar fecha a corta
                 let fechaOriginal = filaDatos[0];
                 let fechaCortaTransformada = estandarizarFechaCorta(fechaOriginal);
                 filaDatos[0] = fechaCortaTransformada; 
@@ -457,7 +468,7 @@
                         cadenaParaHuella += valCelda + "|"; 
                     }
 
-                    // CORRECCIÓN DEL ORDEN DE COLUMNAS PARA GOOGLE SHEETS
+                    // ESTRUCTURA DIRECTA HACIA EL HISTÓRICO MAESTRO
                     objetoLimpio["USER"] = usuarioActualDNI; // Columna T
                     objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); // Columna U
                     objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); // Columna V
@@ -471,6 +482,8 @@
                     if (conteoDespacho[tipoDespacho] !== undefined) conteoDespacho[tipoDespacho]++;
                 }
             }
+
+            document.getElementById('result-container').classList.remove('hidden');
 
             if (erroresBloqueantes.length > 0) {
                 document.getElementById('error-section').classList.remove('hidden');
@@ -503,7 +516,7 @@
                 document.getElementById('score-text').textContent = `${displayPorcentaje}%`;
 
                 const scoreCircle = document.getElementById('score-circle');
-                scoreCircle.classList.remove('text-emerald-500', 'text-amber-500', 'text-red-500', 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]', 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]', 'drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]');
+                scoreCircle.className = "transition-all duration-1000 ease-out";
 
                 if (porcentaje >= 99.5) scoreCircle.classList.add('text-emerald-500', 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]');
                 else if (porcentaje >= 80) scoreCircle.classList.add('text-amber-500', 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]');
@@ -549,36 +562,30 @@
             const btn = document.getElementById('btn-enviar');
             btn.innerHTML = `Guardando en la nube...`; 
             btn.disabled = true;
-            btn.classList.replace('bg-blue-600', 'bg-zinc-700');
-            btn.classList.replace('hover:bg-blue-500', 'hover:bg-zinc-600');
-            btn.classList.remove('shadow-[0_0_15px_rgba(37,99,235,0.4)]');
+            btn.className = "w-full text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex justify-center items-center gap-2 text-xl border bg-zinc-700 hover:bg-zinc-600 border-zinc-500";
 
             fetch(URL_GAS, { method: "POST", mode: "no-cors", body: JSON.stringify(datosListosParaEnviar) })
             .then(() => { 
                 btn.innerHTML = "✅ ¡Datos Guardados Exitosamente!";
-                btn.classList.replace('bg-zinc-700', 'bg-emerald-600');
-                btn.classList.replace('hover:bg-zinc-600', 'hover:bg-emerald-500');
+                btn.className = "w-full text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex justify-center items-center gap-2 text-xl border bg-emerald-600 hover:bg-emerald-500 border-emerald-400";
                 
                 const timestampCarga = new Date().toLocaleString('es-PE', { hour12: false });
                 localStorage.setItem('fecha_ultima_carga_' + usuarioActualDNI, timestampCarga);
                 actualizarDisplayUltimaCarga(usuarioActualDNI);
 
                 setTimeout(() => {
-                    document.getElementById('result-container').classList.add('hidden');
+                    document.getElementById('result-container').className = "mt-8 hidden space-y-6";
                     btn.innerHTML = "<span>🚀</span> Guardar en el Histórico Maestro";
                     btn.disabled = false;
-                    btn.classList.replace('bg-emerald-600', 'bg-blue-600');
-                    btn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
-                    btn.classList.add('shadow-[0_0_15px_rgba(37,99,235,0.4)]');
+                    btn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50";
                     fileInput.value = "";
                     datosListosParaEnviar = [];
                 }, 4000);
             }).catch(error => {
                 alert("Hubo un problema de conexión. Inténtalo de nuevo.");
                 btn.innerHTML = "<span>🔄</span> Reintentar Guardado";
+                btn.className = "w-full text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex justify-center items-center gap-2 text-xl border bg-red-600 hover:bg-red-500 border-red-400";
                 btn.disabled = false;
-                btn.classList.replace('bg-zinc-700', 'bg-red-600');
-                btn.classList.replace('hover:bg-zinc-600', 'hover:bg-red-500');
             });
         };
     </script>
