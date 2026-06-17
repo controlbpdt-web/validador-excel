@@ -144,9 +144,9 @@
 
     <script>
         // ====================================================================
-        // CONFIGURACIÓN BASE (ENLACE ACTUALIZADO)
+        // CONFIGURACIÓN BASE (ENLACE NUEVO ACTUALIZADO)
         // ====================================================================
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbySBQgLO5Xwkx7dpKd1UvSx36KmoU9omUVN4HlWhn86Vqkv6pCYVkkQ54RHEPfvuWYN/exec";
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbwvgx5fepEB-kAvsIgqESDR675YdQNxh92hF4UAd2_k-nS2WdoV0Qp2EvFOI0vVu-zj/exec";
         
         let usuarioActualDNI = ""; 
         
@@ -223,7 +223,7 @@
             setTimeout(() => {
                 document.getElementById('login-container').classList.add('hidden');
                 const app = document.getElementById('app-container');
-                app.classList.remove('hidden'); // CORREGIDO: Renderizado nativo asegurado
+                app.classList.remove('hidden'); 
                 document.getElementById('user-display').innerText = usuarioActualDNI;
                 
                 actualizarDisplayUltimaCarga(usuarioActualDNI);
@@ -418,7 +418,6 @@
                         return; 
                     }
 
-                    // CORREGIDO: Evaluación segura de diccionarios
                     if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
                         valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
                         filaDatos[idx] = valorLimpio; 
@@ -465,7 +464,7 @@
                         cadenaParaHuella += valCelda + "|"; 
                     }
 
-                    // ACPLAMIENTO DE LLAVES EXACTO PARA EL PARSEO DINÁMICO DEL SERVIDOR
+                    // DISTRIBUCIÓN ESTÁNDAR FIJA (T, U, V)
                     objetoLimpio["USER"] = usuarioActualDNI; 
                     objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); 
                     objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); 
