@@ -136,7 +136,7 @@
                 </div>
 
                 <button id="btn-enviar" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50">
-                    <span>🚀</span> Guardar en el Histórico Maestro
+                    <span>🚀</span> Guardar en el Historial OLT
                 </button>
             </div>
         </div>
@@ -144,9 +144,9 @@
 
     <script>
         // ====================================================================
-        // CONFIGURACIÓN BASE (ENLACE NUEVO ACTUALIZADO)
+        // CONFIGURACIÓN BASE (ENLACE ACTUALIZADO)
         // ====================================================================
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbySBQgLO5Xwkx7dpKd1UvSx36KmoU9omUVN4HlWhn86Vqkv6pCYVkkQ54RHEPfvuWYN/exec";
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbz9C66JEEnCikmZWobmBdev44RBa9PmhNR2lnQRyrGe2bhBoGDVCGYncw3_vwWSC4IM/exec";
         
         let usuarioActualDNI = ""; 
         
@@ -464,7 +464,7 @@
                         cadenaParaHuella += valCelda + "|"; 
                     }
 
-                    // DISTRIBUCIÓN ESTÁNDAR FIJA (T, U, V)
+                    // DISTRIBUCIÓN ESTÁNDAR FIJA
                     objetoLimpio["USER"] = usuarioActualDNI; 
                     objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); 
                     objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); 
@@ -571,7 +571,7 @@
 
                 setTimeout(() => {
                     document.getElementById('result-container').className = "mt-8 hidden space-y-6";
-                    btn.innerHTML = "<span>🚀</span> Guardar en el Histórico Maestro";
+                    btn.innerHTML = "<span>🚀</span> Guardar en el Historial OLT";
                     btn.disabled = false;
                     btn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50";
                     fileInput.value = "";
