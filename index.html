@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Validador de Consolidados</title>
+
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <style>
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #000000; }
@@ -17,20 +20,28 @@
 
     <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-40 bg-blue-600/10 blur-[150px] pointer-events-none z-0"></div>
 
+    <!-- LOGIN -->
     <div id="login-container" class="relative z-10 flex justify-center items-center w-full max-w-sm mx-auto transition-all duration-500">
         <div class="bg-zinc-950 p-10 rounded-2xl shadow-2xl shadow-black border border-zinc-800/80 w-full text-center">
             <div class="mb-6 flex justify-center">
                 <span class="text-6xl drop-shadow-[0_0_15px_rgba(37,99,235,0.3)]">🔐</span>
             </div>
+
             <h2 class="text-2xl font-extrabold text-white mb-2 tracking-tight">Acceso Restringido</h2>
             <p class="text-zinc-400 text-sm mb-8">Ingresa tu número de DNI para acceder al validador.</p>
-            
+
             <div class="text-left mb-6">
                 <label class="block text-white text-sm font-bold mb-2 ml-1">Número de DNI</label>
-                <input type="text" id="dni-input" maxlength="8" 
-                    class="w-full bg-black text-white border-2 border-zinc-700 rounded-xl p-4 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-center text-2xl tracking-[0.25em] font-bold" 
-                    placeholder="••••••••" 
-                    onkeypress="return event.charCode >= 48 && event.charCode <= 57" autocomplete="off">
+                <input
+                    type="text"
+                    id="dni-input"
+                    maxlength="8"
+                    class="w-full bg-black text-white border-2 border-zinc-700 rounded-xl p-4 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-center text-2xl tracking-[0.25em] font-bold"
+                    placeholder="••••••••"
+                    autocomplete="off"
+                    inputmode="numeric"
+                    onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                />
                 <p id="login-error" class="text-red-400 text-sm mt-2 hidden font-medium text-center">❌ DNI no autorizado o inválido.</p>
                 <p id="login-network-error" class="text-amber-400 text-sm mt-2 hidden font-medium text-center">⚠️ Error de conexión con el servidor.</p>
             </div>
@@ -41,39 +52,54 @@
         </div>
     </div>
 
+    <!-- APP -->
     <div id="app-container" class="hidden bg-zinc-950 p-8 rounded-2xl shadow-2xl shadow-black w-full max-w-5xl mx-auto border border-zinc-800/80 relative overflow-hidden transition-all duration-500 z-10">
-        
+
         <div class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-zinc-800/80 pb-4">
             <div>
                 <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
                 <p class="text-zinc-300 mt-1 flex items-center gap-2">
                     Sube tu archivo Excel para validar la estructura.
-                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">Fuzzy AI + Escudo Antiduplicados</span>
+                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">
+                        Fuzzy AI + Escudo Antiduplicados
+                    </span>
                 </p>
             </div>
+
             <div class="mt-4 md:mt-0 flex flex-col items-end gap-1.5">
                 <div class="bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex flex-wrap items-center gap-2 max-w-md justify-end">
                     <span class="text-zinc-400 text-sm">Usuario:</span>
                     <span id="user-display" class="text-white font-bold tracking-wider mr-1"></span>
                     <span id="last-upload-display" class="text-zinc-400 text-xs border-l border-zinc-700 pl-2 italic"></span>
                 </div>
-                <button id="btn-logout" class="text-zinc-500 hover:text-red-400 text-xs font-bold transition-colors underline decoration-zinc-700 underline-offset-4">Cerrar Sesión Segura</button>
+                <button id="btn-logout" class="text-zinc-500 hover:text-red-400 text-xs font-bold transition-colors underline decoration-zinc-700 underline-offset-4">
+                    Cerrar Sesión Segura
+                </button>
             </div>
         </div>
-        
+
+        <!-- DROPZONE -->
         <div id="drop-zone" class="border-2 border-dashed border-zinc-600 bg-black/60 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-zinc-900/80 transition-all duration-300 group">
-            <input type="file" id="file-input" class="hidden" accept=".xlsx, .xls">
+            <input type="file" id="file-input" class="hidden" accept=".xlsx,.xls" />
             <div class="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-lg opacity-80 group-hover:opacity-100">📄</div>
-            <p class="text-white font-medium text-lg">Arrastra tu Excel aquí o <span class="text-blue-400 font-bold group-hover:text-blue-300 transition-colors">haz clic para subir</span></p>
+            <p class="text-white font-medium text-lg">
+                Arrastra tu Excel aquí o
+                <span class="text-blue-400 font-bold group-hover:text-blue-300 transition-colors">haz clic para subir</span>
+            </p>
         </div>
 
+        <!-- RESULTADOS -->
         <div id="result-container" class="mt-8 hidden space-y-6">
+
+            <!-- ERRORES -->
             <div id="error-section" class="hidden bg-red-950/40 p-6 rounded-xl border border-red-500/30 shadow-lg">
                 <div class="flex items-center gap-3 mb-4">
                     <span class="text-2xl">🚫</span>
                     <h3 class="text-red-400 font-bold text-xl">Errores Críticos Detectados</h3>
                 </div>
-                <p class="text-red-200 mb-4 text-sm font-medium">El archivo no se puede subir. Corrige los siguientes errores en tu Excel y vuelve a intentarlo:</p>
+                <p class="text-red-200 mb-4 text-sm font-medium">
+                    El archivo no se puede subir. Corrige los siguientes errores en tu Excel y vuelve a intentarlo:
+                </p>
                 <div class="max-h-64 overflow-y-auto rounded border border-red-500/20 bg-black/60">
                     <table class="w-full text-sm text-left text-white border-collapse">
                         <thead class="bg-red-900/60 sticky top-0 backdrop-blur-md">
@@ -88,23 +114,27 @@
                 </div>
             </div>
 
+            <!-- ADVERTENCIAS -->
             <div id="warning-section" class="hidden bg-amber-950/40 p-6 rounded-xl border border-amber-500/30 shadow-lg">
                 <div class="flex items-center gap-3 mb-3">
                     <span class="text-2xl">⚠️</span>
                     <h3 class="text-amber-400 font-bold text-lg">Observaciones (Campos Vacíos)</h3>
                 </div>
-                <p class="text-amber-100 mb-3 text-sm font-medium">El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:</p>
+                <p class="text-amber-100 mb-3 text-sm font-medium">
+                    El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:
+                </p>
                 <div class="max-h-40 overflow-y-auto bg-black/60 p-4 rounded border border-amber-500/20 text-sm">
                     <ul id="warning-list" class="list-disc pl-5 space-y-2 text-white tracking-wide"></ul>
                 </div>
             </div>
 
+            <!-- ÉXITO -->
             <div id="success-section" class="hidden bg-emerald-950/30 p-6 rounded-xl border border-emerald-500/30 shadow-lg">
                 <div class="flex items-center gap-3 mb-6">
                     <span class="text-2xl">✅</span>
                     <h3 class="text-emerald-400 font-bold text-xl tracking-wide">¡Validación Estricta Superada!</h3>
                 </div>
-                
+
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div class="bg-black/60 p-5 rounded-xl border border-emerald-500/20 flex flex-col justify-center items-center">
                         <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-1">Filas Listas</p>
@@ -115,8 +145,17 @@
                         <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3">Calidad de Datos</p>
                         <div class="w-24 h-24 relative flex justify-center items-center">
                             <svg viewBox="0 0 36 36" class="w-full h-full svg-circle">
-                                <path class="text-zinc-800" stroke-width="3.5" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path id="score-circle" class="transition-all duration-1000 ease-out" stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round" fill="none" stroke="currentColor" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path class="text-zinc-800" stroke-width="3.5" stroke="currentColor" fill="none"
+                                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                                <path id="score-circle"
+                                      class="transition-all duration-1000 ease-out"
+                                      stroke-dasharray="0, 100"
+                                      stroke-width="3.5"
+                                      stroke-linecap="round"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831">
+                                </path>
                             </svg>
                             <div class="absolute inset-0 flex justify-center items-center">
                                 <span id="score-text" class="text-xl font-black text-white">0%</span>
@@ -125,13 +164,17 @@
                     </div>
 
                     <div class="bg-black/60 p-5 rounded-xl border border-indigo-500/20 flex flex-col justify-center items-center md:items-start">
-                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3 border-b border-zinc-700 pb-2 w-full text-center md:text-left">Despacho</p>
+                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3 border-b border-zinc-700 pb-2 w-full text-center md:text-left">
+                            Despacho
+                        </p>
                         <div id="conteo-despacho" class="flex flex-wrap justify-center md:justify-start gap-3 text-sm w-full"></div>
                     </div>
                 </div>
 
                 <div class="bg-black/60 p-5 rounded-xl border border-zinc-700 mb-8">
-                    <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-4 border-b border-zinc-700 pb-2">Líneas</p>
+                    <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-4 border-b border-zinc-700 pb-2">
+                        Líneas
+                    </p>
                     <div id="conteo-lineas" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"></div>
                 </div>
 
@@ -143,446 +186,746 @@
     </div>
 
     <script>
-        // URL CORREGIDA DE TU GOOGLE APPS SCRIPT
+        /************************************************************
+         * CONFIGURACIÓN
+         ************************************************************/
         const URL_GAS = "https://script.google.com/macros/s/AKfycbx4D0jiXK93V5ihGhO8bVQR1oQsfRn-VT7MHtdarDLZi_cHku_rtCHCKPIuD9ZP-WFs/exec";
-        
-        let usuarioActualDNI = ""; 
-        
+        const TIEMPO_SESION_HORAS = 8;
+        const UMBRAL_FUZZY = 0.49;
+
         const VALORES_PERMITIDOS = {
-            1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"], 
-            11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"], 
-            15: ["LIMA", "PROVINCIA"], 
-            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO", "RECOJO CLIENTE"], 
-            17: ["SECO", "REFRIGERADO", "CLIMATIZADO"] 
+            1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"],
+            11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"],
+            15: ["LIMA", "PROVINCIA"],
+            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO", "RECOJO CLIENTE"],
+            17: ["SECO", "REFRIGERADO", "CLIMATIZADO"]
         };
 
         const HOMOLOGACION_FORZADA = {
-            11: { 
+            11: {
                 "ADIUM": "TECNOFARMA",
-                "ELEA PERU": "ELEA" 
+                "ELEA PERU": "ELEA"
             }
         };
 
-        const COLS_ADVERTENCIA = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14]; 
+        const COLS_ADVERTENCIA = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14];
+        const TOTAL_COLUMNAS_ESPERADAS = 19;
+
+        let usuarioActualDNI = "";
         let datosListosParaEnviar = [];
 
-        // --- GESTIÓN DE SESIÓN Y LOGIN ---
-        const inputDNI = document.getElementById('dni-input');
-        const btnLogin = document.getElementById('btn-login');
-        const TIEMPO_SESION_HORAS = 8;
-        
+        /************************************************************
+         * DOM
+         ************************************************************/
+        const inputDNI = document.getElementById("dni-input");
+        const btnLogin = document.getElementById("btn-login");
+        const btnLogout = document.getElementById("btn-logout");
+        const fileInput = document.getElementById("file-input");
+        const dropZone = document.getElementById("drop-zone");
+        const resultContainer = document.getElementById("result-container");
+        const errorSection = document.getElementById("error-section");
+        const warningSection = document.getElementById("warning-section");
+        const successSection = document.getElementById("success-section");
+        const errorTableBody = document.getElementById("error-table-body");
+        const warningList = document.getElementById("warning-list");
+        const scoreCircle = document.getElementById("score-circle");
+        const scoreText = document.getElementById("score-text");
+        const totalFilas = document.getElementById("total-filas");
+        const conteoDespacho = document.getElementById("conteo-despacho");
+        const conteoLineas = document.getElementById("conteo-lineas");
+        const btnEnviar = document.getElementById("btn-enviar");
+
+        /************************************************************
+         * HELPERS
+         ************************************************************/
+        function escapeHTML(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function limpiarTexto(txt) {
+            return txt !== undefined && txt !== null ? String(txt).trim().toUpperCase() : "";
+        }
+
+        function columnaExcel(index) {
+            let col = "";
+            let n = index + 1;
+            while (n > 0) {
+                const rem = (n - 1) % 26;
+                col = String.fromCharCode(65 + rem) + col;
+                n = Math.floor((n - 1) / 26);
+            }
+            return col;
+        }
+
+        function formatDateDDMMYYYY(date) {
+            const d = String(date.getDate()).padStart(2, "0");
+            const m = String(date.getMonth() + 1).padStart(2, "0");
+            const y = date.getFullYear();
+            return `${d}/${m}/${y}`;
+        }
+
+        function parseRealDateFromString(value) {
+            const txt = String(value).trim();
+            const match = txt.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+            if (!match) return null;
+
+            let day = Number(match[1]);
+            let month = Number(match[2]);
+            let year = Number(match[3]);
+
+            if (year < 100) year += 2000;
+            if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+            const date = new Date(year, month - 1, day);
+            const isValid =
+                date.getFullYear() === year &&
+                date.getMonth() === month - 1 &&
+                date.getDate() === day;
+
+            return isValid ? date : null;
+        }
+
+        function normalizarFecha(valor) {
+            if (valor === null || valor === undefined || valor === "") return "";
+
+            if (valor instanceof Date && !isNaN(valor.getTime())) {
+                return formatDateDDMMYYYY(valor);
+            }
+
+            if (typeof valor === "number" && Number.isFinite(valor)) {
+                // Excel serial date
+                const parsed = XLSX?.SSF?.parse_date_code ? XLSX.SSF.parse_date_code(valor) : null;
+                if (parsed && parsed.y && parsed.m && parsed.d) {
+                    const date = new Date(parsed.y, parsed.m - 1, parsed.d);
+                    if (!isNaN(date.getTime())) {
+                        return formatDateDDMMYYYY(date);
+                    }
+                }
+            }
+
+            if (typeof valor === "string") {
+                const date = parseRealDateFromString(valor);
+                if (date) return formatDateDDMMYYYY(date);
+            }
+
+            return "";
+        }
+
+        function esFechaValida(valor) {
+            return normalizarFecha(valor) !== "";
+        }
+
+        function calcularSimilitud(s1, s2) {
+            const a = String(s1 ?? "");
+            const b = String(s2 ?? "");
+
+            let longer = a;
+            let shorter = b;
+
+            if (a.length < b.length) {
+                longer = b;
+                shorter = a;
+            }
+
+            const longerLength = longer.length;
+            if (longerLength === 0) return 1;
+
+            const costs = new Array(shorter.length + 1);
+
+            for (let j = 0; j <= shorter.length; j++) {
+                costs[j] = j;
+            }
+
+            for (let i = 1; i <= longer.length; i++) {
+                let lastValue = i;
+                for (let j = 1; j <= shorter.length; j++) {
+                    const newValue =
+                        longer.charAt(i - 1) === shorter.charAt(j - 1)
+                            ? costs[j - 1]
+                            : Math.min(costs[j - 1], costs[j], lastValue) + 1;
+
+                    costs[j - 1] = lastValue;
+                    lastValue = newValue;
+                }
+                costs[shorter.length] = lastValue;
+            }
+
+            return (longerLength - costs[shorter.length]) / longerLength;
+        }
+
+        // Huella más robusta que el hash anterior
+        function generarHuellaDigital(textoFila, seed = 0) {
+            let h1 = 0xdeadbeef ^ seed;
+            let h2 = 0x41c6ce57 ^ seed;
+
+            for (let i = 0; i < textoFila.length; i++) {
+                const ch = textoFila.charCodeAt(i);
+                h1 = Math.imul(h1 ^ ch, 2654435761);
+                h2 = Math.imul(h2 ^ ch, 1597334677);
+            }
+
+            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+
+            const hash = 4294967296 * (2097151 & h2) + (h1 >>> 0);
+            return `ID_${hash}`;
+        }
+
+        function resetearResultados() {
+            resultContainer.classList.add("hidden");
+            errorSection.classList.add("hidden");
+            warningSection.classList.add("hidden");
+            successSection.classList.add("hidden");
+
+            errorTableBody.innerHTML = "";
+            warningList.innerHTML = "";
+            conteoDespacho.innerHTML = "";
+            conteoLineas.innerHTML = "";
+            totalFilas.textContent = "0";
+            scoreText.textContent = "0%";
+
+            scoreCircle.setAttribute("stroke-dasharray", "0, 100");
+            scoreCircle.className = "transition-all duration-1000 ease-out";
+
+            datosListosParaEnviar = [];
+        }
+
+        function actualizarDisplayUltimaCarga(dni) {
+            const ultimaCarga = localStorage.getItem("fecha_ultima_carga_" + dni);
+            const display = document.getElementById("last-upload-display");
+
+            if (ultimaCarga) {
+                display.innerHTML = `Última carga: <span class="text-blue-400 font-semibold">${escapeHTML(ultimaCarga)}</span>`;
+            } else {
+                display.textContent = "Sin cargas registradas";
+            }
+        }
+
+        function normalizarFila(row, totalCols = TOTAL_COLUMNAS_ESPERADAS) {
+            return Array.from({ length: totalCols }, (_, c) => {
+                if (!row || row[c] === undefined || row[c] === null) return "";
+                return row[c];
+            });
+        }
+
+        /************************************************************
+         * SESIÓN / LOGIN
+         ************************************************************/
         window.onload = () => {
-            const sesionGuardada = localStorage.getItem('validador_sesion_segura');
-            if (sesionGuardada) {
+            const sesionGuardada = localStorage.getItem("validador_sesion_segura");
+            if (!sesionGuardada) return;
+
+            try {
                 const sesion = JSON.parse(sesionGuardada);
                 const ahora = Date.now();
+
                 if ((ahora - sesion.timestamp) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000)) {
                     iniciarApp(sesion.dni);
                 } else {
-                    localStorage.removeItem('validador_sesion_segura');
+                    localStorage.removeItem("validador_sesion_segura");
                 }
+            } catch {
+                localStorage.removeItem("validador_sesion_segura");
             }
         };
 
         async function procesarLogin() {
             const dni = inputDNI.value.trim();
-            if(dni.length === 0) return;
 
-            document.getElementById('login-error').classList.add('hidden');
-            document.getElementById('login-network-error').classList.add('hidden');
-            btnLogin.innerHTML = `Validando DNI...`;
+            document.getElementById("login-error").classList.add("hidden");
+            document.getElementById("login-network-error").classList.add("hidden");
+
+            if (!/^\d{8}$/.test(dni)) {
+                document.getElementById("login-error").classList.remove("hidden");
+                inputDNI.classList.add("animate-bounce");
+                setTimeout(() => inputDNI.classList.remove("animate-bounce"), 500);
+                return;
+            }
+
+            btnLogin.innerHTML = "Validando DNI...";
             btnLogin.disabled = true;
 
             try {
-                const respuesta = await fetch(URL_GAS + "?action=login&dni=" + dni);
+                // Mantengo GET para no romper tu Apps Script actual
+                const respuesta = await fetch(`${URL_GAS}?action=login&dni=${encodeURIComponent(dni)}`, {
+                    method: "GET"
+                });
+
+                if (!respuesta.ok) throw new Error("Respuesta HTTP inválida");
+
                 const datos = await respuesta.json();
 
                 if (datos.autorizado) {
-                    localStorage.setItem('validador_sesion_segura', JSON.stringify({ dni: dni, timestamp: Date.now() }));
+                    localStorage.setItem("validador_sesion_segura", JSON.stringify({
+                        dni,
+                        timestamp: Date.now()
+                    }));
                     iniciarApp(dni);
                 } else {
-                    document.getElementById('login-error').classList.remove('hidden');
-                    inputDNI.classList.add('animate-bounce');
-                    setTimeout(() => inputDNI.classList.remove('animate-bounce'), 500);
+                    document.getElementById("login-error").classList.remove("hidden");
+                    inputDNI.classList.add("animate-bounce");
+                    setTimeout(() => inputDNI.classList.remove("animate-bounce"), 500);
                 }
             } catch (error) {
-                document.getElementById('login-network-error').classList.remove('hidden');
+                console.error("Error en login:", error);
+                document.getElementById("login-network-error").classList.remove("hidden");
             } finally {
-                btnLogin.innerHTML = `Ingresar al Sistema`;
+                btnLogin.innerHTML = "Ingresar al Sistema";
                 btnLogin.disabled = false;
             }
         }
 
         function iniciarApp(dniValidado) {
             usuarioActualDNI = dniValidado;
-            document.getElementById('login-container').classList.add('opacity-0', 'scale-95');
+
+            const loginContainer = document.getElementById("login-container");
+            const appContainer = document.getElementById("app-container");
+
+            loginContainer.classList.add("opacity-0", "scale-95");
+
             setTimeout(() => {
-                document.getElementById('login-container').classList.add('hidden');
-                const app = document.getElementById('app-container');
-                app.classList.remove('hidden'); 
-                document.getElementById('user-display').innerText = usuarioActualDNI;
-                
+                loginContainer.classList.add("hidden");
+                appContainer.classList.remove("hidden");
+                document.getElementById("user-display").textContent = usuarioActualDNI;
+
                 actualizarDisplayUltimaCarga(usuarioActualDNI);
 
-                app.classList.add('opacity-0', 'translate-y-4');
-                setTimeout(() => { app.classList.remove('opacity-0', 'translate-y-4'); }, 50);
+                appContainer.classList.add("opacity-0", "translate-y-4");
+                setTimeout(() => {
+                    appContainer.classList.remove("opacity-0", "translate-y-4");
+                }, 50);
             }, 400);
         }
 
-        function actualizarDisplayUltimaCarga(dni) {
-            const ultimaCarga = localStorage.getItem('fecha_ultima_carga_' + dni);
-            const display = document.getElementById('last-upload-display');
-            if (ultimaCarga) {
-                display.innerHTML = `Última carga: <span class="text-blue-400 font-semibold">${ultimaCarga}</span>`;
-            } else {
-                display.innerHTML = `Sin cargas hoy`;
+        btnLogin.addEventListener("click", procesarLogin);
+        inputDNI.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                procesarLogin();
             }
-        }
-
-        document.getElementById('btn-login').onclick = procesarLogin;
-        inputDNI.addEventListener('keypress', function (e) { if (e.key === 'Enter') { e.preventDefault(); procesarLogin(); }});
-
-        document.getElementById('btn-logout').onclick = () => {
-            localStorage.removeItem('validador_sesion_segura');
-            location.reload(); 
-        };
-
-        // --- ALGORITMOS DE MAPEO, FECHAS Y FUZZY MATCH ---
-        function generarHuellaDigital(textoFila) {
-            let hash = 0;
-            for (let i = 0; i < textoFila.length; i++) {
-                const char = textoFila.charCodeAt(i);
-                hash = (hash << 5) - hash + char;
-                hash |= 0; 
-            }
-            return "ID_" + Math.abs(hash);
-        }
-
-        const estandarizarFechaCorta = (valor) => {
-            if (!valor) return "";
-            if (valor instanceof Date) {
-                let d = String(valor.getDate()).padStart(2, '0');
-                let m = String(valor.getMonth() + 1).padStart(2, '0'); 
-                let y = valor.getFullYear();
-                return `${d}/${m}/${y}`;
-            }
-            if (typeof valor === 'number') {
-                let fechaObj = new Date((valor - (25567 + 2)) * 86400 * 1000);
-                fechaObj = new Date(fechaObj.getTime() + (fechaObj.getTimezoneOffset() * 60000));
-                let d = String(fechaObj.getDate()).padStart(2, '0');
-                let m = String(fechaObj.getMonth() + 1).padStart(2, '0');
-                let y = fechaObj.getFullYear();
-                return `${d}/${m}/${y}`;
-            }
-            return String(valor).trim();
-        };
-
-        const esFechaValida = (valor) => {
-            if (!valor) return false;
-            const regexFecha = /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/; 
-            return regexFecha.test(String(valor).trim());
-        };
-
-        function calcularSimilitud(s1, s2) {
-            let longer = s1; let shorter = s2;
-            if (s1.length < s2.length) { longer = s2; shorter = s1; }
-            let longerLength = longer.length;
-            if (longerLength == 0) return 1.0;
-            let costs = new Array();
-            for (let i = 0; i <= longer.length; i++) {
-                let lastValue = i;
-                for (let j = 0; j <= shorter.length; j++) {
-                    if (i == 0) costs[j] = j;
-                    else {
-                        if (j > 0) {
-                            let newValue = costs[j - 1];
-                            if (longer.charAt(i - 1) != shorter.charAt(j - 1)) {
-                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                            }
-                            costs[j - 1] = lastValue; lastValue = newValue;
-                        }
-                    }
-                }
-                if (i > 0) costs[shorter.length] = lastValue;
-            }
-            return (longerLength - costs[shorter.length]) / parseFloat(longerLength);
-        }
-
-        const letraColumna = (index) => String.fromCharCode(65 + index);
-        const limpiarTexto = (txt) => txt !== undefined && txt !== null ? String(txt).trim().toUpperCase() : "";
-
-        // --- ARRASTRE Y SOLTADO DEL EXCEL ---
-        const fileInput = document.getElementById('file-input');
-        const dropZone = document.getElementById('drop-zone');
-
-        dropZone.onclick = () => fileInput.click();
-        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500', 'bg-zinc-900'); });
-        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('border-blue-500', 'bg-zinc-900'); });
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault(); dropZone.classList.remove('border-blue-500', 'bg-zinc-900');
-            if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; procesarArchivo(fileInput.files[0]); }
         });
-        fileInput.onchange = (e) => { if (e.target.files[0]) procesarArchivo(e.target.files[0]); };
+
+        btnLogout.addEventListener("click", () => {
+            localStorage.removeItem("validador_sesion_segura");
+            location.reload();
+        });
+
+        /************************************************************
+         * CARGA DE ARCHIVO
+         ************************************************************/
+        dropZone.addEventListener("click", () => fileInput.click());
+
+        dropZone.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            dropZone.classList.add("border-blue-500", "bg-zinc-900");
+        });
+
+        dropZone.addEventListener("dragleave", (e) => {
+            e.preventDefault();
+            dropZone.classList.remove("border-blue-500", "bg-zinc-900");
+        });
+
+        dropZone.addEventListener("drop", (e) => {
+            e.preventDefault();
+            dropZone.classList.remove("border-blue-500", "bg-zinc-900");
+
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                fileInput.files = e.dataTransfer.files;
+                procesarArchivo(file);
+            }
+        });
+
+        fileInput.addEventListener("change", (e) => {
+            const file = e.target.files?.[0];
+            if (file) procesarArchivo(file);
+        });
 
         function procesarArchivo(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
-                const hoja = workbook.Sheets[workbook.SheetNames[0]];
-                const dataPlana = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "", raw: true });
-                procesarValidacion(dataPlana, hoja);
-            };
-            reader.readAsArrayBuffer(file);
-        }
+            resetearResultados();
 
-        // --- PROCESAMIENTO Y VALIDACIÓN INTERNA ---
-        function procesarValidacion(filas, hoja) {
-            let erroresBloqueantes = [];
-            let conteoVaciosPorColumna = {}; 
-            let validosParaSubir = [];
-            let conteoLineas = {};
-            let conteoDespacho = { "LIMA": 0, "PROVINCIA": 0 }; 
-            let totalCeldasVacias = 0; 
-            
-            VALORES_PERMITIDOS[11].forEach(l => conteoLineas[l] = 0); 
+            if (!file) return;
 
-            document.getElementById('score-circle').setAttribute('stroke-dasharray', '0, 100');
-            document.getElementById('result-container').className = "mt-8 hidden space-y-6";
-            document.getElementById('error-section').classList.add('hidden');
-            document.getElementById('warning-section').classList.add('hidden');
-            document.getElementById('success-section').classList.add('hidden');
-
-            if (filas.length < 5) {
-                alert("El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
+            const nombre = (file.name || "").toLowerCase();
+            if (!nombre.endsWith(".xlsx") && !nombre.endsWith(".xls")) {
+                alert("⚠️ Solo se permiten archivos Excel (.xlsx o .xls).");
+                fileInput.value = "";
                 return;
             }
 
-            const encabezadosKeys = filas[3]; 
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {
+                        type: "array",
+                        cellDates: true
+                    });
+
+                    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                        throw new Error("El archivo no contiene hojas.");
+                    }
+
+                    const nombreHoja = workbook.SheetNames[0];
+                    const hoja = workbook.Sheets[nombreHoja];
+
+                    if (!hoja) {
+                        throw new Error("No se pudo leer la hoja principal.");
+                    }
+
+                    const filas = XLSX.utils.sheet_to_json(hoja, {
+                        header: 1,
+                        defval: "",
+                        raw: true
+                    });
+
+                    procesarValidacion(filas, hoja);
+                } catch (error) {
+                    console.error("Error al leer el archivo:", error);
+                    alert("⚠️ El archivo no es válido, está dañado o no corresponde a un Excel compatible.");
+                    fileInput.value = "";
+                }
+            };
+
+            reader.onerror = () => {
+                alert("⚠️ No se pudo leer el archivo seleccionado.");
+                fileInput.value = "";
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        /************************************************************
+         * VALIDACIÓN
+         ************************************************************/
+        function procesarValidacion(filas, hoja) {
+            resetearResultados();
+
+            if (!Array.isArray(filas) || filas.length < 5) {
+                alert("⚠️ El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
+                fileInput.value = "";
+                return;
+            }
+
+            const erroresBloqueantes = [];
+            const conteoVaciosPorColumna = {};
+            const validosParaSubir = [];
+            const conteoLineasData = {};
+            const conteoDespachoData = { "LIMA": 0, "PROVINCIA": 0 };
+            let totalCeldasVacias = 0;
+
+            VALORES_PERMITIDOS[11].forEach(linea => {
+                conteoLineasData[linea] = 0;
+            });
+
+            const encabezadosKeys = normalizarFila(filas[3]);
 
             for (let i = 4; i < filas.length; i++) {
-                let filaDatos = [...filas[i]]; 
+                let filaDatos = normalizarFila(filas[i]);
 
+                // Preserva visualización formateada en columnas D y G si existe
                 if (hoja) {
-                    let cellD = hoja[XLSX.utils.encode_cell({r: i, c: 3})]; 
-                    let cellG = hoja[XLSX.utils.encode_cell({r: i, c: 6})]; 
+                    const cellD = hoja[XLSX.utils.encode_cell({ r: i, c: 3 })];
+                    const cellG = hoja[XLSX.utils.encode_cell({ r: i, c: 6 })];
+
                     if (cellD && cellD.w !== undefined) filaDatos[3] = cellD.w;
                     if (cellG && cellG.w !== undefined) filaDatos[6] = cellG.w;
                 }
-                
-                let filaVacia = true;
-                for(let c = 0; c <= 18; c++) {
-                    if(String(filaDatos[c] || "").trim() !== "") filaVacia = false;
-                }
-                if(filaVacia) continue;
 
-                let valC = limpiarTexto(filaDatos[2]);
-                let valE = limpiarTexto(filaDatos[4]);
-                if (valC === "" && valE === "") continue; 
+                // Omite filas totalmente vacías
+                const filaVacia = filaDatos.every(cell => String(cell ?? "").trim() === "");
+                if (filaVacia) continue;
 
-                let numFilaVisual = i + 1;
+                // Mantengo tu lógica: si C y E están vacías, se omite la fila
+                const valC = limpiarTexto(filaDatos[2]);
+                const valE = limpiarTexto(filaDatos[4]);
+                if (valC === "" && valE === "") continue;
+
+                const numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
 
-                let fechaOriginal = filaDatos[0];
-                let fechaCortaTransformada = estandarizarFechaCorta(fechaOriginal);
-                filaDatos[0] = fechaCortaTransformada; 
+                // Validación fecha en columna A
+                const fechaNormalizada = normalizarFecha(filaDatos[0]);
+                filaDatos[0] = fechaNormalizada;
 
-                if (!esFechaValida(fechaCortaTransformada)) {
-                    erroresBloqueantes.push({ fila: numFilaVisual, col: "A", msg: "Debe ser una fecha válida." });
+                if (!fechaNormalizada) {
+                    erroresBloqueantes.push({
+                        fila: numFilaVisual,
+                        col: "A",
+                        msg: "Debe ser una fecha válida."
+                    });
                     erroresEnEstaFila = true;
                 }
 
+                // Validación obligatoria en C (Entrega)
                 if (limpiarTexto(filaDatos[2]) === "") {
-                    erroresBloqueantes.push({ fila: numFilaVisual, col: "C", msg: "Celda vacía obligatoria (Entrega)." });
+                    erroresBloqueantes.push({
+                        fila: numFilaVisual,
+                        col: "C",
+                        msg: "Celda vacía obligatoria (Entrega)."
+                    });
                     erroresEnEstaFila = true;
                 }
 
+                // Validaciones por catálogo permitido
                 Object.keys(VALORES_PERMITIDOS).forEach(idxStr => {
-                    let idx = parseInt(idxStr);
-                    let valorCrudo = filaDatos[idx];
+                    const idx = Number(idxStr);
+                    const valorCrudo = filaDatos[idx];
                     let valorLimpio = limpiarTexto(valorCrudo);
-                    
+
                     if (valorLimpio === "") {
-                        erroresBloqueantes.push({ fila: numFilaVisual, col: letraColumna(idx), msg: "Celda vacía obligatoria." });
+                        erroresBloqueantes.push({
+                            fila: numFilaVisual,
+                            col: columnaExcel(idx),
+                            msg: "Celda vacía obligatoria."
+                        });
                         erroresEnEstaFila = true;
-                        return; 
+                        return;
                     }
 
+                    // Homologación forzada
                     if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
                         valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
-                        filaDatos[idx] = valorLimpio; 
+                        filaDatos[idx] = valorLimpio;
                     }
 
+                    // Si no coincide exactamente, aplicar fuzzy
                     if (!VALORES_PERMITIDOS[idx].includes(valorLimpio)) {
-                        let mejorSimilitud = 0; let mejorCoincidencia = "";
+                        let mejorSimilitud = 0;
+                        let mejorCoincidencia = "";
+
                         VALORES_PERMITIDOS[idx].forEach(permitido => {
-                            let similitud = calcularSimilitud(valorLimpio, permitted);
-                            if (similitud > mejorSimilitud) { mejorSimilitud = similitud; mejorCoincidencia = permitido; }
+                            const similitud = calcularSimilitud(valorLimpio, permitido); // <-- corregido
+                            if (similitud > mejorSimilitud) {
+                                mejorSimilitud = similitud;
+                                mejorCoincidencia = permitido;
+                            }
                         });
 
-                        if (mejorSimilitud >= 0.49) {
-                            filaDatos[idx] = mejorCoincidencia; 
+                        if (mejorSimilitud >= UMBRAL_FUZZY) {
+                            filaDatos[idx] = mejorCoincidencia;
                         } else {
-                            let porcentajeFallo = Math.round(mejorSimilitud * 100);
-                            let mensaje = `Valor inválido: "${valorCrudo}". Similitud más alta: ${porcentajeFallo}%`;
-                            erroresBloqueantes.push({ fila: numFilaVisual, col: letraColumna(idx), msg: mensaje });
+                            const porcentajeFallo = Math.round(mejorSimilitud * 100);
+                            erroresBloqueantes.push({
+                                fila: numFilaVisual,
+                                col: columnaExcel(idx),
+                                msg: `Valor inválido: "${String(valorCrudo)}". Similitud más alta: ${porcentajeFallo}%`
+                            });
                             erroresEnEstaFila = true;
                         }
                     } else {
-                        filaDatos[idx] = valorLimpio; 
+                        filaDatos[idx] = valorLimpio;
                     }
                 });
 
                 if (!erroresEnEstaFila) {
+                    // Advertencias por vacíos
                     COLS_ADVERTENCIA.forEach(idx => {
-                        if (String(filaDatos[idx] || "").trim() === "") {
-                            let nombreEncabezado = encabezadosKeys[idx] ? String(encabezadosKeys[idx]).trim() : `Columna ${letraColumna(idx)}`;
+                        if (String(filaDatos[idx] ?? "").trim() === "") {
+                            const nombreEncabezado = encabezadosKeys[idx]
+                                ? String(encabezadosKeys[idx]).trim()
+                                : `Columna ${columnaExcel(idx)}`;
+
                             conteoVaciosPorColumna[nombreEncabezado] = (conteoVaciosPorColumna[nombreEncabezado] || 0) + 1;
-                            totalCeldasVacias++; 
+                            totalCeldasVacias++;
                         }
                     });
 
-                    let objetoLimpio = {};
+                    const objetoLimpio = {};
                     let cadenaParaHuella = "";
-                    
-                    for (let c = 0; c <= 18; c++) {
-                        let nombreKey = encabezadosKeys[c];
-                        let keyFinal = nombreKey ? String(nombreKey).trim() : `Columna_${letraColumna(c)}`; 
-                        let valCelda = filaDatos[c] !== undefined ? String(filaDatos[c]).trim() : "";
-                        
-                        objetoLimpio[keyFinal] = valCelda;
-                        cadenaParaHuella += valCelda + "|"; 
+
+                    for (let c = 0; c < TOTAL_COLUMNAS_ESPERADAS; c++) {
+                        const nombreKey = encabezadosKeys[c]
+                            ? String(encabezadosKeys[c]).trim()
+                            : `Columna_${columnaExcel(c)}`;
+
+                        const valCelda = filaDatos[c] !== undefined && filaDatos[c] !== null
+                            ? String(filaDatos[c]).trim()
+                            : "";
+
+                        objetoLimpio[nombreKey] = valCelda;
+                        cadenaParaHuella += `${valCelda}|`;
                     }
 
-                    objetoLimpio["USER"] = usuarioActualDNI; 
-                    objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); 
-                    objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); 
+                    objetoLimpio["USER"] = usuarioActualDNI;
+                    objetoLimpio["Fecha De Registro"] = new Date().toLocaleString("es-PE", { hour12: false });
+                    objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella);
 
                     validosParaSubir.push(objetoLimpio);
-                    
-                    let linea = limpiarTexto(filaDatos[11]);
-                    if (conteoLineas[linea] !== undefined) conteoLineas[linea]++;
 
-                    let tipoDespacho = limpiarTexto(filaDatos[15]);
-                    if (conteoDespacho[tipoDespacho] !== undefined) conteoDespacho[tipoDespacho]++;
+                    const linea = limpiarTexto(filaDatos[11]);
+                    if (conteoLineasData[linea] !== undefined) conteoLineasData[linea]++;
+
+                    const tipoDespacho = limpiarTexto(filaDatos[15]);
+                    if (conteoDespachoData[tipoDespacho] !== undefined) conteoDespachoData[tipoDespacho]++;
                 }
             }
 
-            document.getElementById('result-container').classList.remove('hidden');
+            resultContainer.classList.remove("hidden");
 
             if (erroresBloqueantes.length > 0) {
-                document.getElementById('error-section').classList.remove('hidden');
-                document.getElementById('error-table-body').innerHTML = erroresBloqueantes.map(e => `
-                    <tr class="border-b border-red-500/10 hover:bg-red-950/80 transition-colors">
-                        <td class="p-3 border-r border-red-500/10 font-black text-center text-red-400">${e.fila}</td>
-                        <td class="p-3 border-r border-red-500/10 font-bold text-center text-white">${e.col}</td>
-                        <td class="p-3 text-red-200 font-medium">${e.msg}</td>
-                    </tr>
-                `).join('');
-                fileInput.value = ""; 
-            } else {
-                let htmlAdvertencias = "";
-                for (let colReal in conteoVaciosPorColumna) {
-                    let cantidad = conteoVaciosPorColumna[colReal];
-                    htmlAdvertencias += `<li>Columna <strong class="text-amber-400">${colReal}</strong> tiene <span class="bg-amber-500/20 text-amber-200 font-bold px-2 py-0.5 rounded border border-amber-500/30 text-xs mx-1">${cantidad}</span> celdas vacías.</li>`;
-                }
-
-                if (htmlAdvertencias !== "") {
-                    document.getElementById('warning-section').classList.remove('hidden');
-                    document.getElementById('warning-list').innerHTML = htmlAdvertencias;
-                }
-
-                let totalCeldasEsperadas = validosParaSubir.length * COLS_ADVERTENCIA.length;
-                let porcentaje = 100;
-                if (totalCeldasEsperadas > 0) porcentaje = ((1 - (totalCeldasVacias / totalCeldasEsperadas)) * 100);
-                
-                let displayPorcentaje = porcentaje === 100 ? "100" : Math.max(0, porcentaje).toFixed(1);
-                document.getElementById('score-text').textContent = `${displayPorcentaje}%`;
-
-                const scoreCircle = document.getElementById('score-circle');
-                scoreCircle.className = "transition-all duration-1000 ease-out";
-
-                if (porcentaje >= 99.5) scoreCircle.classList.add('text-emerald-500', 'drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]');
-                else if (porcentaje >= 80) scoreCircle.classList.add('text-amber-500', 'drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]');
-                else scoreCircle.classList.add('text-red-500', 'drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]');
-
-                setTimeout(() => { scoreCircle.setAttribute('stroke-dasharray', `${Math.max(0, porcentaje)}, 100`); }, 150);
-
-                document.getElementById('success-section').classList.remove('hidden');
-                document.getElementById('total-filas').innerText = validosParaSubir.length;
-                
-                let htmlDespacho = "";
-                for (const [despacho, cantidad] of Object.entries(conteoDespacho)) {
-                    if (cantidad > 0) {
-                        htmlDespacho += `<div class="bg-blue-900/30 border border-blue-500/40 px-4 py-2 rounded-xl flex items-center gap-3">
-                            <span class="font-bold text-white">${despacho}</span>
-                            <span class="bg-blue-500 text-white py-0.5 px-3 rounded-full text-xs font-black shadow-[0_0_10px_rgba(59,130,246,0.5)]">${cantidad}</span>
-                        </div>`;
-                    }
-                }
-                document.getElementById('conteo-despacho').innerHTML = htmlDespacho || '<p class="text-zinc-500 italic text-sm">Sin datos</p>';
-
-                let htmlConteo = "";
-                for (const [linea, cantidad] of Object.entries(conteoLineas)) {
-                    if (cantidad > 0) {
-                        htmlConteo += `<div class="bg-black/80 border border-zinc-700 px-3 py-2 rounded-lg flex justify-between items-center hover:border-indigo-400/60 transition-colors">
-                            <span class="font-bold text-white truncate mr-2" title="${linea}">${linea}</span>
-                            <span class="bg-indigo-500/20 text-indigo-300 py-1 px-2 rounded-md font-black border border-indigo-500/30">${cantidad}</span>
-                        </div>`;
-                    }
-                }
-                document.getElementById('conteo-lineas').innerHTML = htmlConteo || '<p class="text-zinc-500 italic col-span-2">Sin líneas validadas.</p>';
-                
-                datosListosParaEnviar = validosParaSubir;
-            }
-        }
-
-        // --- ENVÍO COMPLETO HACIA EL MAESTRO EN GOOGLE SHEETS ---
-        document.getElementById('btn-enviar').onclick = async () => {
-            if (!datosListosParaEnviar || datosListosParaEnviar.length === 0) {
-                alert("⚠️ No hay datos estructurados listos para ser despachados.");
+                renderErrores(erroresBloqueantes);
+                fileInput.value = "";
                 return;
             }
 
-            const btn = document.getElementById('btn-enviar');
-            const textoOriginal = btn.innerHTML;
+            renderAdvertencias(conteoVaciosPorColumna);
+            renderResumenExitoso(validosParaSubir, conteoDespachoData, conteoLineasData, totalCeldasVacias);
 
-            btn.innerHTML = `<span>⏳</span> Conectando con el Histórico Maestro...`;
-            btn.disabled = true;
+            datosListosParaEnviar = validosParaSubir;
+        }
+
+        /************************************************************
+         * RENDER
+         ************************************************************/
+        function renderErrores(erroresBloqueantes) {
+            errorSection.classList.remove("hidden");
+
+            errorTableBody.innerHTML = erroresBloqueantes.map(e => `
+                <tr class="border-b border-red-500/10 hover:bg-red-950/80 transition-colors">
+                    <td class="p-3 border-r border-red-500/10 font-black text-center text-red-400">${escapeHTML(e.fila)}</td>
+                    <td class="p-3 border-r border-red-500/10 font-bold text-center text-white">${escapeHTML(e.col)}</td>
+                    <td class="p-3 text-red-200 font-medium">${escapeHTML(e.msg)}</td>
+                </tr>
+            `).join("");
+        }
+
+        function renderAdvertencias(conteoVaciosPorColumna) {
+            const entries = Object.entries(conteoVaciosPorColumna);
+            if (entries.length === 0) return;
+
+            warningSection.classList.remove("hidden");
+
+            warningList.innerHTML = entries.map(([colReal, cantidad]) => `
+                <li>
+                    Columna <strong class="text-amber-400">${escapeHTML(colReal)}</strong>
+                    tiene
+                    <span class="bg-amber-500/20 text-amber-200 font-bold px-2 py-0.5 rounded border border-amber-500/30 text-xs mx-1">${escapeHTML(cantidad)}</span>
+                    celdas vacías.
+                </li>
+            `).join("");
+        }
+
+        function renderResumenExitoso(validosParaSubir, conteoDespachoData, conteoLineasData, totalCeldasVacias) {
+            successSection.classList.remove("hidden");
+
+            totalFilas.textContent = String(validosParaSubir.length);
+
+            // Score de calidad
+            const totalCeldasEsperadas = validosParaSubir.length * COLS_ADVERTENCIA.length;
+            let porcentaje = 100;
+
+            if (totalCeldasEsperadas > 0) {
+                porcentaje = (1 - (totalCeldasVacias / totalCeldasEsperadas)) * 100;
+            }
+
+            porcentaje = Math.max(0, Math.min(100, porcentaje));
+            const displayPorcentaje = porcentaje === 100 ? "100" : porcentaje.toFixed(1);
+            scoreText.textContent = `${displayPorcentaje}%`;
+
+            scoreCircle.className = "transition-all duration-1000 ease-out";
+
+            if (porcentaje >= 99.5) {
+                scoreCircle.classList.add("text-emerald-500", "drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]");
+            } else if (porcentaje >= 80) {
+                scoreCircle.classList.add("text-amber-500", "drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]");
+            } else {
+                scoreCircle.classList.add("text-red-500", "drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]");
+            }
+
+            setTimeout(() => {
+                scoreCircle.setAttribute("stroke-dasharray", `${porcentaje}, 100`);
+            }, 150);
+
+            // Resumen despacho
+            const despachoHtml = Object.entries(conteoDespachoData)
+                .filter(([, cantidad]) => cantidad > 0)
+                .map(([despacho, cantidad]) => `
+                    <div class="bg-blue-900/30 border border-blue-500/40 px-4 py-2 rounded-xl flex items-center gap-3">
+                        <span class="font-bold text-white">${escapeHTML(despacho)}</span>
+                        <span class="bg-blue-500 text-white py-0.5 px-3 rounded-full text-xs font-black shadow-[0_0_10px_rgba(59,130,246,0.5)]">
+                            ${escapeHTML(cantidad)}
+                        </span>
+                    </div>
+                `).join("");
+
+            conteoDespacho.innerHTML = despachoHtml || `<p class="text-zinc-500 italic text-sm">Sin datos</p>`;
+
+            // Resumen líneas
+            const lineasHtml = Object.entries(conteoLineasData)
+                .filter(([, cantidad]) => cantidad > 0)
+                .map(([linea, cantidad]) => `
+                    <div class="bg-black/80 border border-zinc-700 px-3 py-2 rounded-lg flex justify-between items-center hover:border-indigo-400/60 transition-colors">
+                        <span class="font-bold text-white truncate mr-2" title="${escapeHTML(linea)}">${escapeHTML(linea)}</span>
+                        <span class="bg-indigo-500/20 text-indigo-300 py-1 px-2 rounded-md font-black border border-indigo-500/30">
+                            ${escapeHTML(cantidad)}
+                        </span>
+                    </div>
+                `).join("");
+
+            conteoLineas.innerHTML = lineasHtml || `<p class="text-zinc-500 italic col-span-2">Sin líneas validadas.</p>`;
+        }
+
+        /************************************************************
+         * ENVÍO AL HISTÓRICO
+         ************************************************************/
+        btnEnviar.addEventListener("click", async () => {
+            if (!datosListosParaEnviar || datosListosParaEnviar.length === 0) {
+                alert("⚠️ No hay datos estructurados listos para ser enviados.");
+                return;
+            }
+
+            const textoOriginal = btnEnviar.innerHTML;
+
+            btnEnviar.innerHTML = `<span>⏳</span> Conectando con el Histórico Maestro...`;
+            btnEnviar.disabled = true;
 
             try {
-                // Envía el paquete JSON purificado al backend mediante POST
                 const respuesta = await fetch(URL_GAS, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "text/plain;charset=utf-8"
+                    },
                     body: JSON.stringify(datosListosParaEnviar)
                 });
+
+                if (!respuesta.ok) {
+                    throw new Error(`HTTP ${respuesta.status}`);
+                }
 
                 const resultado = await respuesta.json();
 
                 if (resultado.status === "success") {
-                    btn.innerHTML = `<span>✨</span> ¡Guardado Exitosamente!`;
-                    btn.className = btn.className.replace('bg-blue-600', 'bg-emerald-600').replace('hover:bg-blue-500', '');
-                    
-                    // Almacena localmente el timestamp del último envío del usuario
-                    const ahora = new Date().toLocaleString('es-PE', { hour12: false });
-                    localStorage.setItem('fecha_ultima_carga_' + usuarioActualDNI, ahora);
+                    btnEnviar.innerHTML = `<span>✨</span> ¡Guardado Exitosamente!`;
+
+                    btnEnviar.classList.remove("bg-blue-600", "hover:bg-blue-500", "border-blue-400/50");
+                    btnEnviar.classList.add("bg-emerald-600", "border-emerald-400/50");
+
+                    const ahora = new Date().toLocaleString("es-PE", { hour12: false });
+                    localStorage.setItem("fecha_ultima_carga_" + usuarioActualDNI, ahora);
 
                     setTimeout(() => {
                         alert(`¡Proceso completado con éxito! Se cargaron ${resultado.insertados || 0} nuevos registros en la hoja BD_OLT.`);
-                        location.reload(); 
+                        location.reload();
                     }, 1000);
                 } else {
-                    alert(`❌ Denegado por el servidor: ${resultado.message}`);
-                    btn.innerHTML = textoOriginal;
-                    btn.disabled = false;
+                    alert(`❌ Denegado por el servidor: ${resultado.message || "Respuesta no válida del backend."}`);
+                    btnEnviar.innerHTML = textoOriginal;
+                    btnEnviar.disabled = false;
                 }
             } catch (error) {
-                console.error("Error de despacho:", error);
-                alert("⚠️ Error de Red: No se obtuvo respuesta del Servidor de Google. Revisa tu señal de internet.");
-                btn.innerHTML = textoOriginal;
-                btn.disabled = false;
+                console.error("Error de envío:", error);
+                alert("⚠️ Error de red: no se obtuvo respuesta del servidor de Google. Revisa tu conexión a internet.");
+                btnEnviar.innerHTML = textoOriginal;
+                btnEnviar.disabled = false;
             }
-        };
+        });
     </script>
 </body>
 </html>
