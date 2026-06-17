@@ -144,7 +144,7 @@
 
     <script>
         // ====================================================================
-        // CONFIGURACIÓN BASE (ENLACE ACTUALIZADO)
+        // CONFIGURACIÓN BASE (ENLACE OFICIAL ACTUALIZADO)
         // ====================================================================
         const URL_GAS = "https://script.google.com/macros/s/AKfycbz9C66JEEnCikmZWobmBdev44RBa9PmhNR2lnQRyrGe2bhBoGDVCGYncw3_vwWSC4IM/exec";
         
@@ -362,14 +362,16 @@
             document.getElementById('warning-section').classList.add('hidden');
             document.getElementById('success-section').classList.add('hidden');
 
-            if (filas.length < 5) {
-                alert("El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
+            if (filas.length < 4) {
+                alert("El archivo no tiene suficientes datos. La información debe empezar a partir de la fila 4.");
                 return;
             }
 
-            const encabezadosKeys = filas[3]; 
+            // CORRECCIÓN CRÍTICA DE ÍNDICES: Los encabezados están en la Fila 3 (índice 2)
+            const encabezadosKeys = filas[2]; 
 
-            for (let i = 4; i < filas.length; i++) {
+            // Los datos empiezan en la Fila 4 (índice 3)
+            for (let i = 3; i < filas.length; i++) {
                 let filaDatos = [...filas[i]]; 
 
                 // EXTRACCIÓN MÁSCARA FORMATEADA (.w) -> Solución para Columnas D y G
@@ -464,7 +466,7 @@
                         cadenaParaHuella += valCelda + "|"; 
                     }
 
-                    // DISTRIBUCIÓN ESTÁNDAR FIJA
+                    // DISTRIBUCIÓN ESTÁNDAR FIJA (T, U, V)
                     objetoLimpio["USER"] = usuarioActualDNI; 
                     objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); 
                     objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); 
