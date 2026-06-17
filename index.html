@@ -144,7 +144,7 @@
 
     <script>
         // ====================================================================
-        // CONFIGURACIÓN BASE (ENLACE OFICIAL ACTUALIZADO)
+        // CONFIGURACIÓN BASE (ENLACE ENLACE OFICIAL)
         // ====================================================================
         const URL_GAS = "https://script.google.com/macros/s/AKfycbz9C66JEEnCikmZWobmBdev44RBa9PmhNR2lnQRyrGe2bhBoGDVCGYncw3_vwWSC4IM/exec";
         
@@ -362,19 +362,18 @@
             document.getElementById('warning-section').classList.add('hidden');
             document.getElementById('success-section').classList.add('hidden');
 
-            if (filas.length < 4) {
-                alert("El archivo no tiene suficientes datos. La información debe empezar a partir de la fila 4.");
+            if (filas.length < 5) {
+                alert("El archivo no tiene suficientes datos. La información debe empezar a partir de la fila 5.");
                 return;
             }
 
-            // CORRECCIÓN CRÍTICA DE ÍNDICES: Los encabezados están en la Fila 3 (índice 2)
-            const encabezadosKeys = filas[2]; 
+            // CORRECCIÓN DE FILAS: Encabezados mapeados en Fila 4 (índice 3)
+            const encabezadosKeys = filas[3]; 
 
-            // Los datos empiezan en la Fila 4 (índice 3)
-            for (let i = 3; i < filas.length; i++) {
+            // Los datos se procesan estrictamente a partir de la Fila 5 (índice 4)
+            for (let i = 4; i < filas.length; i++) {
                 let filaDatos = [...filas[i]]; 
 
-                // EXTRACCIÓN MÁSCARA FORMATEADA (.w) -> Solución para Columnas D y G
                 if (hoja) {
                     let cellD = hoja[XLSX.utils.encode_cell({r: i, c: 3})]; 
                     let cellG = hoja[XLSX.utils.encode_cell({r: i, c: 6})]; 
@@ -421,8 +420,8 @@
                     }
 
                     if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
-                        valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
-                        filaDatos[idx] = valorLimpio; 
+                        valorLinter = HOMOLOGACION_FORZADA[idx][valorLimpio];
+                        filaDatos[idx] = valorLinter; 
                     }
 
                     if (!VALORES_PERMITIDOS[idx].includes(valorLimpio)) {
@@ -466,7 +465,6 @@
                         cadenaParaHuella += valCelda + "|"; 
                     }
 
-                    // DISTRIBUCIÓN ESTÁNDAR FIJA (T, U, V)
                     objetoLimpio["USER"] = usuarioActualDNI; 
                     objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); 
                     objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); 
