@@ -136,7 +136,7 @@
                 </div>
 
                 <button id="btn-enviar" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50">
-                    <span>🚀</span> Guardar en el Historial OLT
+                    <span>🚀</span> Guardar en el Histórico Maestro
                 </button>
             </div>
         </div>
@@ -144,9 +144,9 @@
 
     <script>
         // ====================================================================
-        // CONFIGURACIÓN BASE (ENLACE ENLACE OFICIAL)
+        // CONFIGURACIÓN BASE (URL DE GOOGLE APPS SCRIPT ACTUALIZADA)
         // ====================================================================
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbz9C66JEEnCikmZWobmBdev44RBa9PmhNR2lnQRyrGe2bhBoGDVCGYncw3_vwWSC4IM/exec";
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbxwXQcgXrPAo34IBqbxoR_QALdT0oPwY9jBg1u8adWfldXMByld8Y8MEbLwBxqQHCnp/exec";
         
         let usuarioActualDNI = ""; 
         
@@ -223,6 +223,7 @@
             setTimeout(() => {
                 document.getElementById('login-container').classList.add('hidden');
                 const app = document.getElementById('app-container');
+                // CORRECCIÓN: Usar classList.remove para que no elimine el bloque
                 app.classList.remove('hidden'); 
                 document.getElementById('user-display').innerText = usuarioActualDNI;
                 
@@ -363,17 +364,16 @@
             document.getElementById('success-section').classList.add('hidden');
 
             if (filas.length < 5) {
-                alert("El archivo no tiene suficientes datos. La información debe empezar a partir de la fila 5.");
+                alert("El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
                 return;
             }
 
-            // CORRECCIÓN DE FILAS: Encabezados mapeados en Fila 4 (índice 3)
             const encabezadosKeys = filas[3]; 
 
-            // Los datos se procesan estrictamente a partir de la Fila 5 (índice 4)
             for (let i = 4; i < filas.length; i++) {
                 let filaDatos = [...filas[i]]; 
 
+                // EXTRACCIÓN MÁSCARA FORMATEADA (.w) -> Solución para Columnas D y G
                 if (hoja) {
                     let cellD = hoja[XLSX.utils.encode_cell({r: i, c: 3})]; 
                     let cellG = hoja[XLSX.utils.encode_cell({r: i, c: 6})]; 
@@ -420,8 +420,8 @@
                     }
 
                     if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
-                        valorLinter = HOMOLOGACION_FORZADA[idx][valorLimpio];
-                        filaDatos[idx] = valorLinter; 
+                        valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
+                        filaDatos[idx] = valorLimpio; 
                     }
 
                     if (!VALORES_PERMITIDOS[idx].includes(valorLimpio)) {
@@ -465,6 +465,7 @@
                         cadenaParaHuella += valCelda + "|"; 
                     }
 
+                    // DISTRIBUCIÓN ESTÁNDAR FIJA (T, U, V)
                     objetoLimpio["USER"] = usuarioActualDNI; 
                     objetoLimpio["Fecha De Registro"] = new Date().toLocaleString('es-PE', { hour12: false }); 
                     objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella); 
@@ -571,7 +572,7 @@
 
                 setTimeout(() => {
                     document.getElementById('result-container').className = "mt-8 hidden space-y-6";
-                    btn.innerHTML = "<span>🚀</span> Guardar en el Historial OLT";
+                    btn.innerHTML = "<span>🚀</span> Guardar en el Histórico Maestro";
                     btn.disabled = false;
                     btn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50";
                     fileInput.value = "";
