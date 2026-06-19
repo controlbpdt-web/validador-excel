@@ -16,6 +16,7 @@
         .svg-circle { transform: rotate(-90deg); transform-origin: 50% 50%; }
     </style>
 </head>
+
 <body class="bg-black min-h-screen p-6 font-sans text-zinc-100 selection:bg-blue-500/30 flex flex-col justify-center">
 
     <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-40 bg-blue-600/10 blur-[150px] pointer-events-none z-0"></div>
@@ -40,7 +41,6 @@
                     placeholder="••••••••"
                     autocomplete="off"
                     inputmode="numeric"
-                    onkeypress="return event.charCode >= 48 && event.charCode <= 57"
                 />
                 <p id="login-error" class="text-red-400 text-sm mt-2 hidden font-medium text-center">❌ DNI no autorizado o inválido.</p>
                 <p id="login-network-error" class="text-amber-400 text-sm mt-2 hidden font-medium text-center">⚠️ Error de conexión con el servidor.</p>
@@ -86,6 +86,7 @@
                 Arrastra tu Excel aquí o
                 <span class="text-blue-400 font-bold group-hover:text-blue-300 transition-colors">haz clic para subir</span>
             </p>
+            <p id="file-status" class="text-zinc-500 text-sm mt-3 hidden"></p>
         </div>
 
         <!-- RESULTADOS -->
@@ -190,25 +191,20 @@
 
         /************************************************************
          * CONFIGURACIÓN
-         * (Sin cambios de valores: misma URL, mismo umbral, mismas
-         *  reglas. Solo se nombran los índices de columna para que
-         *  el resto del código no dependa de "números mágicos".)
          ************************************************************/
         const URL_GAS = "https://script.google.com/macros/s/AKfycbx4D0jiXK93V5ihGhO8bVQR1oQsfRn-VT7MHtdarDLZi_cHku_rtCHCKPIuD9ZP-WFs/exec";
         const TIEMPO_SESION_HORAS = 8;
         const UMBRAL_FUZZY = 0.49;
         const TOTAL_COLUMNAS_ESPERADAS = 19;
-        const FILA_ENCABEZADOS_IDX = 3;   // fila 4 del Excel (0-indexed)
-        const FILA_INICIO_DATOS_IDX = 4;  // fila 5 del Excel (0-indexed)
+        const FILA_ENCABEZADOS_IDX = 3;
+        const FILA_INICIO_DATOS_IDX = 4;
 
-        // Índices de columna con nombre, en vez de números sueltos
-        // repetidos por todo el código (0 = A, 1 = B, 2 = C, ...).
         const COL = {
             FECHA: 0,
-            ENTREGA: 2,          // columna C, obligatoria sin catálogo
-            DESTINO_VISUAL: 3,   // columna D, se preserva su formato visual
-            CANAL: 4,            // columna E
-            VISUAL_G: 6,         // columna G, se preserva su formato visual
+            ENTREGA: 2,
+            DESTINO_VISUAL: 3,
+            CANAL: 4,
+            VISUAL_G: 6,
             LINEA: 11,
             REGION: 15,
             TIPO_DESPACHO_TEXTO: 15,
@@ -244,6 +240,8 @@
         const btnLogout = document.getElementById("btn-logout");
         const fileInput = document.getElementById("file-input");
         const dropZone = document.getElementById("drop-zone");
+        const fileStatus = document.getElementById("file-status");
+
         const resultContainer = document.getElementById("result-container");
         const errorSection = document.getElementById("error-section");
         const warningSection = document.getElementById("warning-section");
@@ -256,10 +254,14 @@
         const conteoDespacho = document.getElementById("conteo-despacho");
         const conteoLineas = document.getElementById("conteo-lineas");
         const btnEnviar = document.getElementById("btn-enviar");
+
         const loginErrorMsg = document.getElementById("login-error");
         const loginNetworkErrorMsg = document.getElementById("login-network-error");
         const lastUploadDisplay = document.getElementById("last-upload-display");
         const userDisplay = document.getElementById("user-display");
+
+        console.log("✅ Script principal cargado.");
+        console.log("📦 XLSX disponible:", typeof XLSX !== "undefined");
 
         /************************************************************
          * HELPERS GENERALES
@@ -288,12 +290,25 @@
             return col;
         }
 
-        // Obtiene el nombre de encabezado real de una columna, o un
-        // nombre genérico de respaldo. Antes este mismo patrón estaba
-        // duplicado en dos lugares distintos del código.
         function obtenerNombreColumna(encabezados, idx) {
             const encabezado = encabezados[idx];
             return encabezado ? String(encabezado).trim() : `Columna ${columnaExcel(idx)}`;
+        }
+
+        function mostrarEstadoArchivo(mensaje, tipo = "info") {
+            if (!fileStatus) return;
+
+            fileStatus.classList.remove("hidden", "text-zinc-500", "text-blue-400", "text-red-400", "text-emerald-400", "text-amber-400");
+
+            const color = {
+                info: "text-blue-400",
+                error: "text-red-400",
+                success: "text-emerald-400",
+                warning: "text-amber-400"
+            }[tipo] || "text-zinc-500";
+
+            fileStatus.classList.add(color);
+            fileStatus.textContent = mensaje;
         }
 
         /************************************************************
@@ -335,12 +350,11 @@
             }
 
             if (typeof valor === "number" && Number.isFinite(valor)) {
-                // Excel serial date
-                const parsed = XLSX?.SSF?.parse_date_code ? XLSX.SSF.parse_date_code(valor) : null;
-                if (parsed && parsed.y && parsed.m && parsed.d) {
-                    const date = new Date(parsed.y, parsed.m - 1, parsed.d);
-                    if (!isNaN(date.getTime())) {
-                        return formatDateDDMMYYYY(date);
+                if (typeof XLSX !== "undefined" && XLSX?.SSF?.parse_date_code) {
+                    const parsed = XLSX.SSF.parse_date_code(valor);
+                    if (parsed && parsed.y && parsed.m && parsed.d) {
+                        const date = new Date(parsed.y, parsed.m - 1, parsed.d);
+                        if (!isNaN(date.getTime())) return formatDateDDMMYYYY(date);
                     }
                 }
             }
@@ -354,15 +368,12 @@
         }
 
         /************************************************************
-         * SIMILITUD (Levenshtein) Y HUELLA DIGITAL
+         * SIMILITUD Y HUELLA
          ************************************************************/
         function calcularSimilitud(s1, s2) {
             const a = String(s1 ?? "");
             const b = String(s2 ?? "");
 
-            // Optimización: si son idénticas, evitamos todo el cálculo
-            // de la matriz de distancia (caso muy frecuente, ya que la
-            // mayoría de celdas coinciden exactamente con el catálogo).
             if (a === b) return 1;
 
             let longer = a;
@@ -378,9 +389,7 @@
 
             const costs = new Array(shorter.length + 1);
 
-            for (let j = 0; j <= shorter.length; j++) {
-                costs[j] = j;
-            }
+            for (let j = 0; j <= shorter.length; j++) costs[j] = j;
 
             for (let i = 1; i <= longer.length; i++) {
                 let lastValue = i;
@@ -399,12 +408,6 @@
             return (longerLength - costs[shorter.length]) / longerLength;
         }
 
-        // Dado un valor de celda y la lista de valores permitidos para
-        // esa columna, devuelve la mejor coincidencia fuzzy encontrada
-        // junto a su porcentaje de similitud. Antes esta búsqueda del
-        // "mejor candidato" vivía inline dentro del forEach de validación;
-        // extraerla aclara qué hace esa parte del algoritmo y permite
-        // testearla de forma aislada si se quisiera en el futuro.
         function encontrarMejorCoincidencia(valor, listaPermitidos) {
             let mejorSimilitud = 0;
             let mejorCoincidencia = "";
@@ -414,7 +417,7 @@
                 if (similitud > mejorSimilitud) {
                     mejorSimilitud = similitud;
                     mejorCoincidencia = permitido;
-                    if (mejorSimilitud === 1) break; // coincidencia perfecta, no seguir buscando
+                    if (mejorSimilitud === 1) break;
                 }
             }
 
@@ -439,7 +442,7 @@
         }
 
         /************************************************************
-         * UI: RESET / SESIÓN
+         * UI
          ************************************************************/
         function resetearResultados() {
             resultContainer.classList.add("hidden");
@@ -488,9 +491,6 @@
                 const sesion = JSON.parse(sesionGuardada);
                 const ahora = Date.now();
 
-                // El token también expira por sí mismo en el servidor, pero
-                // mantenemos este chequeo local para no mostrar la app y luego
-                // descubrir recién al guardar que el token ya venció.
                 if ((ahora - sesion.timestamp) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000) && sesion.token) {
                     iniciarApp(sesion.dni, sesion.token);
                 } else {
@@ -501,6 +501,10 @@
             }
         };
 
+        inputDNI.addEventListener("input", () => {
+            inputDNI.value = inputDNI.value.replace(/\D/g, "").slice(0, 8);
+        });
+
         function mostrarErrorLogin() {
             loginErrorMsg.classList.remove("hidden");
             inputDNI.classList.add("animate-bounce");
@@ -508,7 +512,7 @@
         }
 
         async function procesarLogin() {
-            const dni = inputDNI.value.trim();
+            const dni = inputDNI.value.replace(/\D/g, "");
 
             loginErrorMsg.classList.add("hidden");
             loginNetworkErrorMsg.classList.add("hidden");
@@ -522,7 +526,6 @@
             btnLogin.disabled = true;
 
             try {
-                // Se mantiene GET para no romper el Apps Script actual.
                 const respuesta = await fetch(`${URL_GAS}?action=login&dni=${encodeURIComponent(dni)}`, {
                     method: "GET"
                 });
@@ -574,6 +577,7 @@
         }
 
         btnLogin.addEventListener("click", procesarLogin);
+
         inputDNI.addEventListener("keypress", (e) => {
             if (e.key === "Enter") {
                 e.preventDefault();
@@ -587,9 +591,15 @@
         });
 
         /************************************************************
-         * CARGA DE ARCHIVO
+         * CARGA DE ARCHIVO — CORREGIDO
          ************************************************************/
-        dropZone.addEventListener("click", () => fileInput.click());
+        document.addEventListener("dragover", (e) => e.preventDefault());
+        document.addEventListener("drop", (e) => e.preventDefault());
+
+        dropZone.addEventListener("click", () => {
+            console.log("🖱 Click en dropzone");
+            fileInput.click();
+        });
 
         dropZone.addEventListener("dragover", (e) => {
             e.preventDefault();
@@ -603,37 +613,78 @@
 
         dropZone.addEventListener("drop", (e) => {
             e.preventDefault();
+            e.stopPropagation();
+
             dropZone.classList.remove("border-blue-500", "bg-zinc-900");
 
-            if (e.dataTransfer.files.length > 0) {
-                const file = e.dataTransfer.files[0];
-                fileInput.files = e.dataTransfer.files;
-                procesarArchivo(file);
+            console.log("📂 DROP detectado");
+
+            if (!e.dataTransfer || !e.dataTransfer.files || e.dataTransfer.files.length === 0) {
+                console.warn("⚠️ No se detectó archivo en el drop.");
+                mostrarEstadoArchivo("⚠️ No se detectó archivo.", "warning");
+                return;
             }
+
+            const file = e.dataTransfer.files[0];
+            console.log("📄 Archivo recibido por drag:", file);
+
+            // IMPORTANTE:
+            // No asignar fileInput.files = e.dataTransfer.files;
+            // En algunos navegadores puede lanzar error y cortar el flujo.
+            procesarArchivo(file);
         });
 
         fileInput.addEventListener("change", (e) => {
-            const file = e.target.files?.[0];
-            if (file) procesarArchivo(file);
+            console.log("📂 Archivo seleccionado manualmente");
+
+            const file = e.target.files && e.target.files[0];
+
+            if (!file) {
+                console.warn("⚠️ No se seleccionó archivo.");
+                mostrarEstadoArchivo("⚠️ No se seleccionó archivo.", "warning");
+                return;
+            }
+
+            procesarArchivo(file);
         });
 
         function procesarArchivo(file) {
+            console.log("🚀 INICIO procesarArchivo:", file);
+
             resetearResultados();
 
-            if (!file) return;
+            if (!file) {
+                console.error("❌ Archivo vacío o indefinido.");
+                mostrarEstadoArchivo("❌ No se recibió archivo.", "error");
+                return;
+            }
+
+            if (typeof XLSX === "undefined") {
+                console.error("❌ XLSX no está cargado.");
+                alert("❌ Error: la librería XLSX no cargó. Revisa internet, firewall o CDN.");
+                mostrarEstadoArchivo("❌ XLSX no cargó.", "error");
+                return;
+            }
 
             const nombre = (file.name || "").toLowerCase();
+            mostrarEstadoArchivo(`📄 Procesando: ${file.name}`, "info");
+
             if (!nombre.endsWith(".xlsx") && !nombre.endsWith(".xls")) {
                 alert("⚠️ Solo se permiten archivos Excel (.xlsx o .xls).");
+                mostrarEstadoArchivo("⚠️ Archivo no permitido. Usa .xlsx o .xls.", "warning");
                 fileInput.value = "";
                 return;
             }
 
             const reader = new FileReader();
 
-            reader.onload = (e) => {
+            reader.onload = (event) => {
+                console.log("📥 FileReader terminó correctamente.");
+
                 try {
-                    const data = new Uint8Array(e.target.result);
+                    const data = new Uint8Array(event.target.result);
+
+                    console.log("📊 Leyendo workbook con XLSX...");
                     const workbook = XLSX.read(data, {
                         type: "array",
                         cellDates: true
@@ -656,16 +707,25 @@
                         raw: true
                     });
 
+                    console.log("✅ Hoja leída:", nombreHoja);
+                    console.log("✅ Total filas leídas:", filas.length);
+
+                    mostrarEstadoArchivo(`✅ Archivo leído. Filas detectadas: ${filas.length}`, "success");
+
                     procesarValidacion(filas, hoja);
+
                 } catch (error) {
-                    console.error("Error al leer el archivo:", error);
-                    alert("⚠️ El archivo no es válido, está dañado o no corresponde a un Excel compatible.");
+                    console.error("💥 Error al procesar Excel:", error);
+                    alert("⚠️ Error procesando el Excel. Abre F12 > Consola para ver el detalle.");
+                    mostrarEstadoArchivo("❌ Error procesando el Excel.", "error");
                     fileInput.value = "";
                 }
             };
 
             reader.onerror = () => {
+                console.error("🚨 Error FileReader:", reader.error);
                 alert("⚠️ No se pudo leer el archivo seleccionado.");
+                mostrarEstadoArchivo("❌ No se pudo leer el archivo.", "error");
                 fileInput.value = "";
             };
 
@@ -673,24 +733,13 @@
         }
 
         /************************************************************
-         * VALIDACIÓN — funciones auxiliares de procesarValidacion
+         * VALIDACIÓN
          ************************************************************/
-
-        // Preserva el texto visual (".w") que Excel muestra en pantalla
-        // para columnas con formato especial (ej. fechas con formato
-        // personalizado), igual que en el original, pero centralizado
-        // en una función para no repetir el patrón por cada columna.
         function preservarFormatoVisual(hoja, filaIdx, colIdx) {
             const celda = hoja[XLSX.utils.encode_cell({ r: filaIdx, c: colIdx })];
             return celda && celda.w !== undefined ? celda.w : undefined;
         }
 
-        // Valida una celda contra su catálogo de valores permitidos,
-        // aplicando primero homologación forzada y luego fuzzy matching.
-        // Devuelve { valorFinal, error } — si hay error, valorFinal es null.
-        // Esto saca del forEach principal toda la lógica de catálogo,
-        // que antes mezclaba tres responsabilidades (vacío / homologación
-        // / fuzzy) en un único bloque denso.
         function validarValorDeCatalogo(valorCrudo, idx) {
             let valorLimpio = limpiarTexto(valorCrudo);
 
@@ -704,6 +753,7 @@
             }
 
             const catalogo = VALORES_PERMITIDOS[idx];
+
             if (catalogo.includes(valorLimpio)) {
                 return { valorFinal: valorLimpio, error: null };
             }
@@ -715,15 +765,13 @@
             }
 
             const porcentajeFallo = Math.round(mejorSimilitud * 100);
+
             return {
                 valorFinal: null,
                 error: `Valor inválido: "${String(valorCrudo)}". Similitud más alta: ${porcentajeFallo}%`
             };
         }
 
-        /************************************************************
-         * VALIDACIÓN PRINCIPAL
-         ************************************************************/
         function procesarValidacion(filas, hoja) {
             resetearResultados();
 
@@ -743,6 +791,7 @@
             VALORES_PERMITIDOS[COL.LINEA].forEach(linea => {
                 conteoLineasData[linea] = 0;
             });
+
             VALORES_PERMITIDOS[COL.REGION].forEach(region => {
                 conteoDespachoData[region] = 0;
             });
@@ -753,27 +802,25 @@
             for (let i = FILA_INICIO_DATOS_IDX; i < filas.length; i++) {
                 const filaDatos = normalizarFila(filas[i]);
 
-                // Preserva visualización formateada en columnas D y G si existe
                 if (hoja) {
                     const visualD = preservarFormatoVisual(hoja, i, COL.DESTINO_VISUAL);
                     const visualG = preservarFormatoVisual(hoja, i, COL.VISUAL_G);
+
                     if (visualD !== undefined) filaDatos[COL.DESTINO_VISUAL] = visualD;
                     if (visualG !== undefined) filaDatos[COL.VISUAL_G] = visualG;
                 }
 
-                // Omite filas totalmente vacías
                 const filaVacia = filaDatos.every(cell => String(cell ?? "").trim() === "");
                 if (filaVacia) continue;
 
-                // Si Entrega (C) y Canal (E) están vacías, se omite la fila
                 const valEntrega = limpiarTexto(filaDatos[COL.ENTREGA]);
                 const valCanal = limpiarTexto(filaDatos[COL.CANAL]);
+
                 if (valEntrega === "" && valCanal === "") continue;
 
                 const numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
 
-                // Validación fecha en columna A
                 const fechaNormalizada = normalizarFecha(filaDatos[COL.FECHA]);
                 filaDatos[COL.FECHA] = fechaNormalizada;
 
@@ -786,7 +833,6 @@
                     erroresEnEstaFila = true;
                 }
 
-                // Validación obligatoria en C (Entrega)
                 if (valEntrega === "") {
                     erroresBloqueantes.push({
                         fila: numFilaVisual,
@@ -796,12 +842,15 @@
                     erroresEnEstaFila = true;
                 }
 
-                // Validaciones por catálogo permitido (vacío -> homologación -> fuzzy)
                 for (const idx of indicesCatalogo) {
                     const { valorFinal, error } = validarValorDeCatalogo(filaDatos[idx], idx);
 
                     if (error) {
-                        erroresBloqueantes.push({ fila: numFilaVisual, col: columnaExcel(idx), msg: error });
+                        erroresBloqueantes.push({
+                            fila: numFilaVisual,
+                            col: columnaExcel(idx),
+                            msg: error
+                        });
                         erroresEnEstaFila = true;
                     } else {
                         filaDatos[idx] = valorFinal;
@@ -810,7 +859,6 @@
 
                 if (erroresEnEstaFila) continue;
 
-                // Advertencias por vacíos
                 COLS_ADVERTENCIA.forEach(idx => {
                     if (String(filaDatos[idx] ?? "").trim() === "") {
                         const nombreEncabezado = obtenerNombreColumna(encabezadosKeys, idx);
@@ -904,13 +952,14 @@
 
             totalFilas.textContent = String(validosParaSubir.length);
 
-            // Score de calidad
             const totalCeldasEsperadas = validosParaSubir.length * COLS_ADVERTENCIA.length;
+
             let porcentaje = totalCeldasEsperadas > 0
                 ? (1 - (totalCeldasVacias / totalCeldasEsperadas)) * 100
                 : 100;
 
             porcentaje = Math.max(0, Math.min(100, porcentaje));
+
             const displayPorcentaje = porcentaje === 100 ? "100" : porcentaje.toFixed(1);
             scoreText.textContent = `${displayPorcentaje}%`;
 
@@ -921,7 +970,6 @@
                 scoreCircle.setAttribute("stroke-dasharray", `${porcentaje}, 100`);
             }, 150);
 
-            // Resumen despacho
             const despachoHtml = Object.entries(conteoDespachoData)
                 .filter(([, cantidad]) => cantidad > 0)
                 .map(([despacho, cantidad]) => `
@@ -935,7 +983,6 @@
 
             conteoDespacho.innerHTML = despachoHtml || `<p class="text-zinc-500 italic text-sm">Sin datos</p>`;
 
-            // Resumen líneas
             const lineasHtml = Object.entries(conteoLineasData)
                 .filter(([, cantidad]) => cantidad > 0)
                 .map(([linea, cantidad]) => `
@@ -995,15 +1042,18 @@
                         alert(`¡Proceso completado con éxito! Se cargaron ${resultado.insertados || 0} nuevos registros en la hoja BD_OLT.`);
                         location.reload();
                     }, 1000);
+
                 } else if (resultado.status === "forbidden") {
                     alert(`🔒 Tu sesión ya no es válida: ${resultado.message || "Vuelve a iniciar sesión."}`);
                     localStorage.removeItem("validador_sesion_segura");
                     location.reload();
+
                 } else {
                     alert(`❌ Denegado por el servidor: ${resultado.message || "Respuesta no válida del backend."}`);
                     btnEnviar.innerHTML = textoOriginal;
                     btnEnviar.disabled = false;
                 }
+
             } catch (error) {
                 console.error("Error de envío:", error);
                 alert("⚠️ Error de red: no se obtuvo respuesta del servidor de Google. Revisa tu conexión a internet.");
@@ -1014,3 +1064,4 @@
     </script>
 </body>
 </html>
+``
