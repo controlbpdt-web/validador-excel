@@ -327,7 +327,6 @@
         const btnLogin = document.getElementById("btn-login");
         const btnLogout = document.getElementById("btn-logout");
         const fileInput = document.getElementById("file-input");
-        const dropZone = document.getElementById("drop-zone");
         const fileStatus = document.getElementById("file-status");
 
         const resultContainer = document.getElementById("result-container");
@@ -680,7 +679,7 @@
             scoreText.textContent = "0%";
 
             scoreCircle.setAttribute("stroke-dasharray", "0, 100");
-            scoreCircle.className = "transition-all duration-1000 ease-out";
+            scoreCircle.setAttribute("class", "transition-all duration-1000 ease-out");
 
             datosListosParaEnviar = [];
         }
@@ -829,10 +828,6 @@
 
         /************************************************************
          * CARGA NATIVA DE ARCHIVO
-         * IMPORTANTE:
-         * No usamos fileInput.click()
-         * No usamos drag & drop
-         * El selector se abre con label for="file-input"
          ************************************************************/
         function archivoExcelValido(file) {
             if (!file) {
@@ -850,6 +845,31 @@
             }
 
             return { ok: true, msg: "Archivo válido." };
+        }
+
+        function leerArchivoComoArrayBuffer(file) {
+            if (file && typeof file.arrayBuffer === "function") {
+                return file.arrayBuffer();
+            }
+
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+
+                reader.onload = (event) => {
+                    if (!event.target || !event.target.result) {
+                        reject(new Error("FileReader no devolvió contenido."));
+                        return;
+                    }
+
+                    resolve(event.target.result);
+                };
+
+                reader.onerror = () => {
+                    reject(reader.error || new Error("No se pudo leer el archivo."));
+                };
+
+                reader.readAsArrayBuffer(file);
+            });
         }
 
         fileInput.addEventListener("change", async (e) => {
@@ -898,7 +918,7 @@
 
                 mostrarEstadoArchivo(`📄 Leyendo archivo: ${file.name}`, "info");
 
-                const buffer = await file.arrayBuffer();
+                const buffer = await leerArchivoComoArrayBuffer(file);
 
                 if (!buffer || buffer.byteLength === 0) {
                     throw new Error("El archivo no devolvió contenido.");
@@ -1232,8 +1252,12 @@
             const displayPorcentaje = porcentaje === 100 ? "100" : porcentaje.toFixed(1);
             scoreText.textContent = `${displayPorcentaje}%`;
 
-            scoreCircle.className = "transition-all duration-1000 ease-out";
-            scoreCircle.classList.add(...calcularColorScore(porcentaje));
+            const clasesScore = [
+                "transition-all duration-1000 ease-out",
+                ...calcularColorScore(porcentaje)
+            ].join(" ");
+
+            scoreCircle.setAttribute("class", clasesScore);
 
             setTimeout(() => {
                 scoreCircle.setAttribute("stroke-dasharray", `${porcentaje}, 100`);
