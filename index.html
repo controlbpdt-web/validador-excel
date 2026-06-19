@@ -14,8 +14,10 @@
         ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
         .svg-circle { transform: rotate(-90deg); transform-origin: 50% 50%; }
+        button:disabled { opacity: 0.65; cursor: not-allowed; }
     </style>
 </head>
+
 <body class="bg-black min-h-screen p-6 font-sans text-zinc-100 selection:bg-blue-500/30 flex flex-col justify-center">
 
     <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-40 bg-blue-600/10 blur-[150px] pointer-events-none z-0"></div>
@@ -57,7 +59,7 @@
         <div class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-zinc-800/80 pb-4">
             <div>
                 <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
-                <p class="text-zinc-300 mt-1 flex items-center gap-2">
+                <p class="text-zinc-300 mt-1 flex items-center gap-2 flex-wrap">
                     Sube tu archivo Excel para validar la estructura.
                     <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">
                         Fuzzy AI + Escudo Antiduplicados
@@ -87,13 +89,12 @@
             <p id="file-status" class="text-zinc-500 text-sm mt-3 hidden"></p>
         </div>
 
-        <!-- Input file FUERA del drop-zone -->
         <input
-    id="file-input"
-    type="file"
-    accept=".xlsx,.xls"
-    style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"
-/>
+            id="file-input"
+            type="file"
+            accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+            style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"
+        />
 
         <!-- RESULTADOS -->
         <div id="result-container" class="mt-8 hidden space-y-6">
@@ -196,14 +197,26 @@
         "use strict";
 
         /************************************************************
+         * CAPTURA GLOBAL DE ERRORES
+         ************************************************************/
+        window.addEventListener("error", (event) => {
+            console.error("ERROR GLOBAL:", event.error || event.message);
+        });
+
+        window.addEventListener("unhandledrejection", (event) => {
+            console.error("PROMESA RECHAZADA:", event.reason);
+        });
+
+        /************************************************************
          * CONFIGURACIÓN
          ************************************************************/
         const URL_GAS = "https://script.google.com/macros/s/AKfycbx4D0jiXK93V5ihGhO8bVQR1oQsfRn-VT7MHtdarDLZi_cHku_rtCHCKPIuD9ZP-WFs/exec";
         const TIEMPO_SESION_HORAS = 8;
         const UMBRAL_FUZZY = 0.49;
         const TOTAL_COLUMNAS_ESPERADAS = 19;
-        const FILA_ENCABEZADOS_IDX = 3;   // fila 4 del Excel (0-indexed)
-        const FILA_INICIO_DATOS_IDX = 4;  // fila 5 del Excel (0-indexed)
+        const FILA_ENCABEZADOS_IDX = 3;
+        const FILA_INICIO_DATOS_IDX = 4;
+        const FETCH_TIMEOUT_MS = 45000;
 
         const COL = {
             FECHA: 0,
@@ -238,6 +251,7 @@
         let tokenSesionActual = "";
         let datosListosParaEnviar = [];
         let archivoProcesandose = false;
+        let dragDepth = 0;
 
         /************************************************************
          * DOM
@@ -317,11 +331,30 @@
                 info: "text-blue-400",
                 error: "text-red-400",
                 success: "text-emerald-400",
-                warning: "text-amber-400"
+                warning: "text-amber-400",
+                neutral: "text-zinc-500"
             }[tipo] || "text-zinc-500";
 
             fileStatus.classList.add(color);
             fileStatus.textContent = mensaje;
+        }
+
+        function fetchConTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeoutMs);
+
+            return fetch(url, {
+                ...options,
+                signal: controller.signal
+            }).finally(() => clearTimeout(id));
+        }
+
+        function validarXLSXDisponible() {
+            return typeof XLSX !== "undefined" &&
+                   XLSX &&
+                   XLSX.read &&
+                   XLSX.utils &&
+                   XLSX.utils.sheet_to_json;
         }
 
         /************************************************************
@@ -382,7 +415,7 @@
         }
 
         /************************************************************
-         * SIMILITUD (Levenshtein) Y HUELLA DIGITAL
+         * SIMILITUD Y HUELLA DIGITAL
          ************************************************************/
         function calcularSimilitud(s1, s2) {
             const a = String(s1 ?? "");
@@ -409,6 +442,7 @@
 
             for (let i = 1; i <= longer.length; i++) {
                 let lastValue = i;
+
                 for (let j = 1; j <= shorter.length; j++) {
                     const newValue =
                         longer.charAt(i - 1) === shorter.charAt(j - 1)
@@ -418,6 +452,7 @@
                     costs[j - 1] = lastValue;
                     lastValue = newValue;
                 }
+
                 costs[shorter.length] = lastValue;
             }
 
@@ -430,9 +465,11 @@
 
             for (const permitido of listaPermitidos) {
                 const similitud = calcularSimilitud(valor, permitido);
+
                 if (similitud > mejorSimilitud) {
                     mejorSimilitud = similitud;
                     mejorCoincidencia = permitido;
+
                     if (mejorSimilitud === 1) break;
                 }
             }
@@ -458,7 +495,7 @@
         }
 
         /************************************************************
-         * UI: RESET / SESIÓN
+         * UI
          ************************************************************/
         function resetearResultados() {
             resultContainer.classList.add("hidden");
@@ -499,7 +536,7 @@
         /************************************************************
          * SESIÓN / LOGIN
          ************************************************************/
-        window.onload = () => {
+        window.addEventListener("load", () => {
             const sesionGuardada = localStorage.getItem("validador_sesion_segura");
             if (!sesionGuardada) return;
 
@@ -507,18 +544,26 @@
                 const sesion = JSON.parse(sesionGuardada);
                 const ahora = Date.now();
 
-                if ((ahora - sesion.timestamp) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000) && sesion.token) {
-                    iniciarApp(sesion.dni, sesion.token);
+                if (
+                    sesion &&
+                    sesion.dni &&
+                    sesion.token &&
+                    /^\d{8}$/.test(String(sesion.dni)) &&
+                    (ahora - Number(sesion.timestamp)) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000)
+                ) {
+                    iniciarApp(String(sesion.dni), String(sesion.token));
                 } else {
                     localStorage.removeItem("validador_sesion_segura");
                 }
             } catch {
                 localStorage.removeItem("validador_sesion_segura");
             }
-        };
+        });
 
         inputDNI.addEventListener("input", () => {
             inputDNI.value = inputDNI.value.replace(/\D/g, "").slice(0, 8);
+            loginErrorMsg.classList.add("hidden");
+            loginNetworkErrorMsg.classList.add("hidden");
         });
 
         function mostrarErrorLogin() {
@@ -542,20 +587,22 @@
             btnLogin.disabled = true;
 
             try {
-                const respuesta = await fetch(`${URL_GAS}?action=login&dni=${encodeURIComponent(dni)}`, {
-                    method: "GET"
+                const respuesta = await fetchConTimeout(`${URL_GAS}?action=login&dni=${encodeURIComponent(dni)}`, {
+                    method: "GET",
+                    cache: "no-store"
                 });
 
-                if (!respuesta.ok) throw new Error("Respuesta HTTP inválida");
+                if (!respuesta.ok) throw new Error("Respuesta HTTP inválida: " + respuesta.status);
 
                 const datos = await respuesta.json();
 
-                if (datos.autorizado && datos.token) {
+                if (datos && datos.autorizado && datos.token) {
                     localStorage.setItem("validador_sesion_segura", JSON.stringify({
                         dni,
                         token: datos.token,
                         timestamp: Date.now()
                     }));
+
                     iniciarApp(dni, datos.token);
                 } else {
                     mostrarErrorLogin();
@@ -586,15 +633,17 @@
                 actualizarDisplayUltimaCarga(usuarioActualDNI);
 
                 appContainer.classList.add("opacity-0", "translate-y-4");
+
                 setTimeout(() => {
                     appContainer.classList.remove("opacity-0", "translate-y-4");
+                    mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
                 }, 50);
-            }, 400);
+            }, 250);
         }
 
         btnLogin.addEventListener("click", procesarLogin);
 
-        inputDNI.addEventListener("keypress", (e) => {
+        inputDNI.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
                 e.preventDefault();
                 procesarLogin();
@@ -607,45 +656,42 @@
         });
 
         /************************************************************
-         * CARGA DE ARCHIVO — VERSIÓN FINAL CORREGIDA
+         * CARGA DE ARCHIVO ROBUSTA
          ************************************************************/
-        function abrirSelectorArchivo() {
+        function resetEstadoDropZone() {
+            dragDepth = 0;
+            dropZone.classList.remove("border-blue-500", "bg-zinc-900");
+        }
 
-            if (archivoProcesandose) return;
-
-            try {
-
-                fileInput.value = "";
-
-                mostrarEstadoArchivo(
-                    "📂 Selecciona un archivo Excel...",
-                    "info"
-                );
-
-                if (typeof fileInput.showPicker === "function") {
-                    fileInput.showPicker();
-                } else {
-                    fileInput.click();
-                }
-
-            } catch (error) {
-
-                console.error("Error abriendo selector", error);
-
-                mostrarEstadoArchivo(
-                    "❌ No se pudo abrir el selector.",
-                    "error"
-                );
+        function activarEstadoDropZone() {
+            dropZone.classList.add("border-blue-500", "bg-zinc-900");
+            if (!archivoProcesandose) {
+                mostrarEstadoArchivo("📄 Suelta el archivo Excel aquí...", "info");
             }
         }
 
-        // Evita que el navegador abra el archivo fuera de la app
-        document.addEventListener("dragover", (e) => {
-            e.preventDefault();
-        });
+        function abrirSelectorArchivo() {
+            if (archivoProcesandose) {
+                mostrarEstadoArchivo("⏳ Ya se está procesando un archivo. Espera un momento...", "warning");
+                return;
+            }
 
-        document.addEventListener("drop", (e) => {
-            e.preventDefault();
+            try {
+                resetEstadoDropZone();
+                fileInput.value = "";
+                mostrarEstadoArchivo("📂 Selecciona un archivo Excel...", "info");
+                fileInput.click();
+            } catch (error) {
+                console.error("Error abriendo selector:", error);
+                mostrarEstadoArchivo("❌ No se pudo abrir el selector.", "error");
+            }
+        }
+
+        ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+            document.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
         });
 
         dropZone.addEventListener("click", (e) => {
@@ -654,167 +700,183 @@
             abrirSelectorArchivo();
         });
 
+        dropZone.addEventListener("dragenter", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragDepth++;
+            activarEstadoDropZone();
+        });
+
         dropZone.addEventListener("dragover", (e) => {
             e.preventDefault();
             e.stopPropagation();
-
-            dropZone.classList.add("border-blue-500", "bg-zinc-900");
-            mostrarEstadoArchivo("📄 Suelta el archivo Excel aquí...", "info");
+            activarEstadoDropZone();
         });
 
         dropZone.addEventListener("dragleave", (e) => {
             e.preventDefault();
             e.stopPropagation();
 
-            dropZone.classList.remove("border-blue-500", "bg-zinc-900");
-            mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
+            dragDepth = Math.max(0, dragDepth - 1);
+
+            if (dragDepth === 0) {
+                resetEstadoDropZone();
+                if (!archivoProcesandose) {
+                    mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
+                }
+            }
         });
 
         dropZone.addEventListener("drop", (e) => {
             e.preventDefault();
             e.stopPropagation();
 
-            dropZone.classList.remove("border-blue-500", "bg-zinc-900");
+            resetEstadoDropZone();
 
-            console.log("📂 DROP detectado:", e);
+            if (archivoProcesandose) {
+                mostrarEstadoArchivo("⏳ Ya se está procesando un archivo. Espera un momento...", "warning");
+                return;
+            }
 
             const files = e.dataTransfer && e.dataTransfer.files;
 
             if (!files || files.length === 0) {
-                console.warn("⚠️ Drop sin archivo.");
                 mostrarEstadoArchivo("⚠️ No se detectó archivo en el arrastre.", "warning");
                 return;
             }
 
-            const file = files[0];
+            if (files.length > 1) {
+                mostrarEstadoArchivo("⚠️ Solo se procesará el primer archivo seleccionado.", "warning");
+            }
 
-            console.log("📄 Archivo recibido por arrastre:", {
-                name: file.name,
-                size: file.size,
-                type: file.type
-            });
-
-            procesarArchivo(file);
+            procesarArchivo(files[0]);
         });
+
+        window.addEventListener("drop", () => resetEstadoDropZone());
+        window.addEventListener("dragend", () => resetEstadoDropZone());
+        window.addEventListener("blur", () => resetEstadoDropZone());
 
         fileInput.addEventListener("change", (e) => {
             e.preventDefault();
             e.stopPropagation();
 
-            console.log("📂 Evento change del input:", e);
+            resetEstadoDropZone();
 
             const files = e.currentTarget.files;
 
             if (!files || files.length === 0) {
-                console.warn("⚠️ El usuario no seleccionó archivo o el navegador devolvió lista vacía.");
                 mostrarEstadoArchivo("⚠️ No se seleccionó archivo.", "warning");
                 return;
             }
 
-            const file = files[0];
-
-            console.log("📄 Archivo seleccionado manualmente:", {
-                name: file.name,
-                size: file.size,
-                type: file.type
-            });
-
-            procesarArchivo(file);
+            procesarArchivo(files[0]);
         });
 
         function procesarArchivo(file) {
             console.log("🚀 INICIO procesarArchivo:", file);
 
+            if (archivoProcesandose) return;
+            archivoProcesandose = true;
+
             resetearResultados();
+            resetEstadoDropZone();
 
-            if (!file) {
-                console.error("❌ Archivo indefinido.");
-                mostrarEstadoArchivo("❌ No se recibió archivo.", "error");
-                return;
-            }
-
-            if (typeof XLSX === "undefined") {
-                console.error("❌ XLSX no está cargado.");
-                alert("❌ Error: la librería XLSX no cargó. Revisa conexión, firewall o CDN.");
-                mostrarEstadoArchivo("❌ XLSX no cargó.", "error");
-                return;
-            }
-
-            const nombre = String(file.name || "").toLowerCase().trim();
-
-            if (!nombre.endsWith(".xlsx") && !nombre.endsWith(".xls")) {
-                alert("⚠️ Solo se permiten archivos Excel (.xlsx o .xls).");
-                mostrarEstadoArchivo("⚠️ Archivo no permitido. Usa .xlsx o .xls.", "warning");
-                fileInput.value = "";
-                return;
-            }
-
-            mostrarEstadoArchivo(`📄 Procesando archivo: ${file.name}`, "info");
-
-            const reader = new FileReader();
-
-            reader.onload = (event) => {
-                console.log("📥 FileReader terminó correctamente.");
-
-                try {
-                    if (!event.target || !event.target.result) {
-                        throw new Error("FileReader no devolvió contenido.");
-                    }
-
-                    const data = new Uint8Array(event.target.result);
-
-                    console.log("📊 Leyendo Excel con XLSX...");
-
-                    const workbook = XLSX.read(data, {
-                        type: "array",
-                        cellDates: true
-                    });
-
-                    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-                        throw new Error("El archivo no contiene hojas.");
-                    }
-
-                    const nombreHoja = workbook.SheetNames[0];
-                    const hoja = workbook.Sheets[nombreHoja];
-
-                    if (!hoja) {
-                        throw new Error("No se pudo leer la primera hoja.");
-                    }
-
-                    const filas = XLSX.utils.sheet_to_json(hoja, {
-                        header: 1,
-                        defval: "",
-                        raw: true
-                    });
-
-                    console.log("✅ Hoja leída:", nombreHoja);
-                    console.log("✅ Total filas detectadas:", filas.length);
-                    console.log("✅ Primeras filas:", filas.slice(0, 5));
-
-                    mostrarEstadoArchivo(`✅ Archivo leído correctamente. Filas detectadas: ${filas.length}`, "success");
-
-                    procesarValidacion(filas, hoja);
-
-                } catch (error) {
-                    console.error("💥 Error procesando Excel:", error);
-                    alert("⚠️ Error procesando el Excel. Abre F12 > Consola para ver el detalle.");
-                    mostrarEstadoArchivo("❌ Error procesando el Excel.", "error");
-                    fileInput.value = "";
+            try {
+                if (!file) {
+                    throw new Error("No se recibió archivo.");
                 }
-            };
 
-            reader.onerror = () => {
-                console.error("🚨 Error FileReader:", reader.error);
-                alert("⚠️ No se pudo leer el archivo seleccionado.");
-                mostrarEstadoArchivo("❌ No se pudo leer el archivo.", "error");
+                if (!validarXLSXDisponible()) {
+                    throw new Error("La librería XLSX no está disponible.");
+                }
+
+                const nombre = String(file.name || "").toLowerCase().trim();
+
+                if (!nombre.endsWith(".xlsx") && !nombre.endsWith(".xls")) {
+                    alert("⚠️ Solo se permiten archivos Excel (.xlsx o .xls).");
+                    mostrarEstadoArchivo("⚠️ Archivo no permitido. Usa .xlsx o .xls.", "warning");
+                    fileInput.value = "";
+                    archivoProcesandose = false;
+                    return;
+                }
+
+                if (file.size <= 0) {
+                    throw new Error("El archivo está vacío.");
+                }
+
+                mostrarEstadoArchivo(`📄 Procesando archivo: ${file.name}`, "info");
+
+                const reader = new FileReader();
+
+                reader.onload = (event) => {
+                    try {
+                        if (!event.target || !event.target.result) {
+                            throw new Error("FileReader no devolvió contenido.");
+                        }
+
+                        const data = new Uint8Array(event.target.result);
+
+                        const workbook = XLSX.read(data, {
+                            type: "array",
+                            cellDates: true
+                        });
+
+                        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                            throw new Error("El archivo no contiene hojas.");
+                        }
+
+                        const nombreHoja = workbook.SheetNames[0];
+                        const hoja = workbook.Sheets[nombreHoja];
+
+                        if (!hoja) {
+                            throw new Error("No se pudo leer la primera hoja.");
+                        }
+
+                        const filas = XLSX.utils.sheet_to_json(hoja, {
+                            header: 1,
+                            defval: "",
+                            raw: true
+                        });
+
+                        console.log("✅ Hoja leída:", nombreHoja);
+                        console.log("✅ Total filas detectadas:", filas.length);
+                        console.log("✅ Primeras filas:", filas.slice(0, 5));
+
+                        mostrarEstadoArchivo(`✅ Archivo leído correctamente. Filas detectadas: ${filas.length}`, "success");
+
+                        procesarValidacion(filas, hoja);
+
+                    } catch (error) {
+                        console.error("💥 Error procesando Excel:", error);
+                        alert("⚠️ Error procesando el Excel. Revisa que el archivo no esté dañado y que tenga la estructura correcta.");
+                        mostrarEstadoArchivo("❌ Error procesando el Excel.", "error");
+                        fileInput.value = "";
+                    } finally {
+                        archivoProcesandose = false;
+                    }
+                };
+
+                reader.onerror = () => {
+                    console.error("🚨 Error FileReader:", reader.error);
+                    alert("⚠️ No se pudo leer el archivo seleccionado.");
+                    mostrarEstadoArchivo("❌ No se pudo leer el archivo.", "error");
+                    fileInput.value = "";
+                    archivoProcesandose = false;
+                };
+
+                reader.readAsArrayBuffer(file);
+
+            } catch (error) {
+                console.error("❌ Error inicial procesando archivo:", error);
+                alert("⚠️ " + (error.message || "No se pudo procesar el archivo."));
+                mostrarEstadoArchivo("❌ No se pudo procesar el archivo.", "error");
                 fileInput.value = "";
-            };
-
-            reader.readAsArrayBuffer(file);
+                archivoProcesandose = false;
+            }
         }
 
         /************************************************************
-         * VALIDACIÓN — funciones auxiliares de procesarValidacion
+         * VALIDACIÓN AUXILIAR
          ************************************************************/
         function preservarFormatoVisual(hoja, filaIdx, colIdx) {
             const celda = hoja[XLSX.utils.encode_cell({ r: filaIdx, c: colIdx })];
@@ -829,11 +891,17 @@
             }
 
             const homologacionesColumna = HOMOLOGACION_FORZADA[idx];
+
             if (homologacionesColumna && homologacionesColumna[valorLimpio]) {
                 valorLimpio = homologacionesColumna[valorLimpio];
             }
 
             const catalogo = VALORES_PERMITIDOS[idx];
+
+            if (!Array.isArray(catalogo)) {
+                return { valorFinal: null, error: "Catálogo interno no configurado." };
+            }
+
             if (catalogo.includes(valorLimpio)) {
                 return { valorFinal: valorLimpio, error: null };
             }
@@ -845,6 +913,7 @@
             }
 
             const porcentajeFallo = Math.round(mejorSimilitud * 100);
+
             return {
                 valorFinal: null,
                 error: `Valor inválido: "${String(valorCrudo)}". Similitud más alta: ${porcentajeFallo}%`
@@ -860,6 +929,7 @@
             if (!Array.isArray(filas) || filas.length < 5) {
                 alert("⚠️ El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
                 fileInput.value = "";
+                mostrarEstadoArchivo("⚠️ Archivo sin suficientes filas.", "warning");
                 return;
             }
 
@@ -887,6 +957,7 @@
                 if (hoja) {
                     const visualD = preservarFormatoVisual(hoja, i, COL.DESTINO_VISUAL);
                     const visualG = preservarFormatoVisual(hoja, i, COL.VISUAL_G);
+
                     if (visualD !== undefined) filaDatos[COL.DESTINO_VISUAL] = visualD;
                     if (visualG !== undefined) filaDatos[COL.VISUAL_G] = visualG;
                 }
@@ -896,6 +967,7 @@
 
                 const valEntrega = limpiarTexto(filaDatos[COL.ENTREGA]);
                 const valCanal = limpiarTexto(filaDatos[COL.CANAL]);
+
                 if (valEntrega === "" && valCanal === "") continue;
 
                 const numFilaVisual = i + 1;
@@ -926,7 +998,11 @@
                     const { valorFinal, error } = validarValorDeCatalogo(filaDatos[idx], idx);
 
                     if (error) {
-                        erroresBloqueantes.push({ fila: numFilaVisual, col: columnaExcel(idx), msg: error });
+                        erroresBloqueantes.push({
+                            fila: numFilaVisual,
+                            col: columnaExcel(idx),
+                            msg: error
+                        });
                         erroresEnEstaFila = true;
                     } else {
                         filaDatos[idx] = valorFinal;
@@ -977,6 +1053,7 @@
             if (erroresBloqueantes.length > 0) {
                 renderErrores(erroresBloqueantes);
                 fileInput.value = "";
+                mostrarEstadoArchivo(`🚫 Se detectaron ${erroresBloqueantes.length} errores críticos.`, "error");
                 return;
             }
 
@@ -984,6 +1061,12 @@
             renderResumenExitoso(validosParaSubir, conteoDespachoData, conteoLineasData, totalCeldasVacias);
 
             datosListosParaEnviar = validosParaSubir;
+
+            if (validosParaSubir.length === 0) {
+                mostrarEstadoArchivo("⚠️ No se encontraron filas válidas para subir.", "warning");
+            } else {
+                mostrarEstadoArchivo(`✅ Validación superada. Filas listas: ${validosParaSubir.length}`, "success");
+            }
         }
 
         /************************************************************
@@ -1035,6 +1118,7 @@
                 : 100;
 
             porcentaje = Math.max(0, Math.min(100, porcentaje));
+
             const displayPorcentaje = porcentaje === 100 ? "100" : porcentaje.toFixed(1);
             scoreText.textContent = `${displayPorcentaje}%`;
 
@@ -1081,13 +1165,20 @@
                 return;
             }
 
+            if (!tokenSesionActual) {
+                alert("🔒 Sesión inválida. Vuelve a iniciar sesión.");
+                localStorage.removeItem("validador_sesion_segura");
+                location.reload();
+                return;
+            }
+
             const textoOriginal = btnEnviar.innerHTML;
 
             btnEnviar.innerHTML = `<span>⏳</span> Conectando con el Histórico Maestro...`;
             btnEnviar.disabled = true;
 
             try {
-                const respuesta = await fetch(URL_GAS, {
+                const respuesta = await fetchConTimeout(URL_GAS, {
                     method: "POST",
                     headers: {
                         "Content-Type": "text/plain;charset=utf-8"
@@ -1128,6 +1219,7 @@
                     btnEnviar.innerHTML = textoOriginal;
                     btnEnviar.disabled = false;
                 }
+
             } catch (error) {
                 console.error("Error de envío:", error);
                 alert("⚠️ Error de red: no se obtuvo respuesta del servidor de Google. Revisa tu conexión a internet.");
@@ -1138,14 +1230,3 @@
     </script>
 </body>
 </html>
-
-
-<script>
-window.addEventListener("error",(event)=>{
-    console.error("ERROR GLOBAL:",event.error);
-});
-
-window.addEventListener("unhandledrejection",(event)=>{
-    console.error("PROMESA RECHAZADA:",event.reason);
-});
-</script>
