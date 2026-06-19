@@ -16,7 +16,6 @@
         .svg-circle { transform: rotate(-90deg); transform-origin: 50% 50%; }
     </style>
 </head>
-
 <body class="bg-black min-h-screen p-6 font-sans text-zinc-100 selection:bg-blue-500/30 flex flex-col justify-center">
 
     <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-40 bg-blue-600/10 blur-[150px] pointer-events-none z-0"></div>
@@ -80,7 +79,6 @@
 
         <!-- DROPZONE -->
         <div id="drop-zone" class="border-2 border-dashed border-zinc-600 bg-black/60 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-zinc-900/80 transition-all duration-300 group">
-            <input type="file" id="file-input" class="hidden" accept=".xlsx,.xls" />
             <div class="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-lg opacity-80 group-hover:opacity-100">📄</div>
             <p class="text-white font-medium text-lg">
                 Arrastra tu Excel aquí o
@@ -88,6 +86,9 @@
             </p>
             <p id="file-status" class="text-zinc-500 text-sm mt-3 hidden"></p>
         </div>
+
+        <!-- Input file FUERA del drop-zone -->
+        <input type="file" id="file-input" class="hidden" accept=".xlsx,.xls" />
 
         <!-- RESULTADOS -->
         <div id="result-container" class="mt-8 hidden space-y-6">
@@ -196,8 +197,8 @@
         const TIEMPO_SESION_HORAS = 8;
         const UMBRAL_FUZZY = 0.49;
         const TOTAL_COLUMNAS_ESPERADAS = 19;
-        const FILA_ENCABEZADOS_IDX = 3;
-        const FILA_INICIO_DATOS_IDX = 4;
+        const FILA_ENCABEZADOS_IDX = 3;   // fila 4 del Excel (0-indexed)
+        const FILA_INICIO_DATOS_IDX = 4;  // fila 5 del Excel (0-indexed)
 
         const COL = {
             FECHA: 0,
@@ -254,7 +255,6 @@
         const conteoDespacho = document.getElementById("conteo-despacho");
         const conteoLineas = document.getElementById("conteo-lineas");
         const btnEnviar = document.getElementById("btn-enviar");
-
         const loginErrorMsg = document.getElementById("login-error");
         const loginNetworkErrorMsg = document.getElementById("login-network-error");
         const lastUploadDisplay = document.getElementById("last-upload-display");
@@ -298,7 +298,14 @@
         function mostrarEstadoArchivo(mensaje, tipo = "info") {
             if (!fileStatus) return;
 
-            fileStatus.classList.remove("hidden", "text-zinc-500", "text-blue-400", "text-red-400", "text-emerald-400", "text-amber-400");
+            fileStatus.classList.remove(
+                "hidden",
+                "text-zinc-500",
+                "text-blue-400",
+                "text-red-400",
+                "text-emerald-400",
+                "text-amber-400"
+            );
 
             const color = {
                 info: "text-blue-400",
@@ -334,6 +341,7 @@
             if (month < 1 || month > 12 || day < 1 || day > 31) return null;
 
             const date = new Date(year, month - 1, day);
+
             const isValid =
                 date.getFullYear() === year &&
                 date.getMonth() === month - 1 &&
@@ -350,11 +358,11 @@
             }
 
             if (typeof valor === "number" && Number.isFinite(valor)) {
-                if (typeof XLSX !== "undefined" && XLSX?.SSF?.parse_date_code) {
-                    const parsed = XLSX.SSF.parse_date_code(valor);
-                    if (parsed && parsed.y && parsed.m && parsed.d) {
-                        const date = new Date(parsed.y, parsed.m - 1, parsed.d);
-                        if (!isNaN(date.getTime())) return formatDateDDMMYYYY(date);
+                const parsed = XLSX?.SSF?.parse_date_code ? XLSX.SSF.parse_date_code(valor) : null;
+                if (parsed && parsed.y && parsed.m && parsed.d) {
+                    const date = new Date(parsed.y, parsed.m - 1, parsed.d);
+                    if (!isNaN(date.getTime())) {
+                        return formatDateDDMMYYYY(date);
                     }
                 }
             }
@@ -368,7 +376,7 @@
         }
 
         /************************************************************
-         * SIMILITUD Y HUELLA
+         * SIMILITUD (Levenshtein) Y HUELLA DIGITAL
          ************************************************************/
         function calcularSimilitud(s1, s2) {
             const a = String(s1 ?? "");
@@ -389,7 +397,9 @@
 
             const costs = new Array(shorter.length + 1);
 
-            for (let j = 0; j <= shorter.length; j++) costs[j] = j;
+            for (let j = 0; j <= shorter.length; j++) {
+                costs[j] = j;
+            }
 
             for (let i = 1; i <= longer.length; i++) {
                 let lastValue = i;
@@ -442,7 +452,7 @@
         }
 
         /************************************************************
-         * UI
+         * UI: RESET / SESIÓN
          ************************************************************/
         function resetearResultados() {
             resultContainer.classList.add("hidden");
@@ -591,24 +601,46 @@
         });
 
         /************************************************************
-         * CARGA DE ARCHIVO — CORREGIDO
+         * CARGA DE ARCHIVO — VERSIÓN FINAL CORREGIDA
          ************************************************************/
-        document.addEventListener("dragover", (e) => e.preventDefault());
-        document.addEventListener("drop", (e) => e.preventDefault());
+        function abrirSelectorArchivo() {
+            console.log("🖱 Abriendo selector de archivo...");
+            mostrarEstadoArchivo("📂 Selecciona un archivo Excel...", "info");
 
-        dropZone.addEventListener("click", () => {
-            console.log("🖱 Click en dropzone");
+            // permite volver a elegir el mismo archivo
+            fileInput.value = "";
             fileInput.click();
+        }
+
+        // Evita que el navegador abra el archivo fuera de la app
+        document.addEventListener("dragover", (e) => {
+            e.preventDefault();
+        });
+
+        document.addEventListener("drop", (e) => {
+            e.preventDefault();
+        });
+
+        dropZone.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            abrirSelectorArchivo();
         });
 
         dropZone.addEventListener("dragover", (e) => {
             e.preventDefault();
+            e.stopPropagation();
+
             dropZone.classList.add("border-blue-500", "bg-zinc-900");
+            mostrarEstadoArchivo("📄 Suelta el archivo Excel aquí...", "info");
         });
 
         dropZone.addEventListener("dragleave", (e) => {
             e.preventDefault();
+            e.stopPropagation();
+
             dropZone.classList.remove("border-blue-500", "bg-zinc-900");
+            mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
         });
 
         dropZone.addEventListener("drop", (e) => {
@@ -617,33 +649,48 @@
 
             dropZone.classList.remove("border-blue-500", "bg-zinc-900");
 
-            console.log("📂 DROP detectado");
+            console.log("📂 DROP detectado:", e);
 
-            if (!e.dataTransfer || !e.dataTransfer.files || e.dataTransfer.files.length === 0) {
-                console.warn("⚠️ No se detectó archivo en el drop.");
-                mostrarEstadoArchivo("⚠️ No se detectó archivo.", "warning");
+            const files = e.dataTransfer && e.dataTransfer.files;
+
+            if (!files || files.length === 0) {
+                console.warn("⚠️ Drop sin archivo.");
+                mostrarEstadoArchivo("⚠️ No se detectó archivo en el arrastre.", "warning");
                 return;
             }
 
-            const file = e.dataTransfer.files[0];
-            console.log("📄 Archivo recibido por drag:", file);
+            const file = files[0];
 
-            // IMPORTANTE:
-            // No asignar fileInput.files = e.dataTransfer.files;
-            // En algunos navegadores puede lanzar error y cortar el flujo.
+            console.log("📄 Archivo recibido por arrastre:", {
+                name: file.name,
+                size: file.size,
+                type: file.type
+            });
+
             procesarArchivo(file);
         });
 
         fileInput.addEventListener("change", (e) => {
-            console.log("📂 Archivo seleccionado manualmente");
+            e.preventDefault();
+            e.stopPropagation();
 
-            const file = e.target.files && e.target.files[0];
+            console.log("📂 Evento change del input:", e);
 
-            if (!file) {
-                console.warn("⚠️ No se seleccionó archivo.");
+            const files = e.currentTarget.files;
+
+            if (!files || files.length === 0) {
+                console.warn("⚠️ El usuario no seleccionó archivo o el navegador devolvió lista vacía.");
                 mostrarEstadoArchivo("⚠️ No se seleccionó archivo.", "warning");
                 return;
             }
+
+            const file = files[0];
+
+            console.log("📄 Archivo seleccionado manualmente:", {
+                name: file.name,
+                size: file.size,
+                type: file.type
+            });
 
             procesarArchivo(file);
         });
@@ -654,20 +701,19 @@
             resetearResultados();
 
             if (!file) {
-                console.error("❌ Archivo vacío o indefinido.");
+                console.error("❌ Archivo indefinido.");
                 mostrarEstadoArchivo("❌ No se recibió archivo.", "error");
                 return;
             }
 
             if (typeof XLSX === "undefined") {
                 console.error("❌ XLSX no está cargado.");
-                alert("❌ Error: la librería XLSX no cargó. Revisa internet, firewall o CDN.");
+                alert("❌ Error: la librería XLSX no cargó. Revisa conexión, firewall o CDN.");
                 mostrarEstadoArchivo("❌ XLSX no cargó.", "error");
                 return;
             }
 
-            const nombre = (file.name || "").toLowerCase();
-            mostrarEstadoArchivo(`📄 Procesando: ${file.name}`, "info");
+            const nombre = String(file.name || "").toLowerCase().trim();
 
             if (!nombre.endsWith(".xlsx") && !nombre.endsWith(".xls")) {
                 alert("⚠️ Solo se permiten archivos Excel (.xlsx o .xls).");
@@ -676,15 +722,22 @@
                 return;
             }
 
+            mostrarEstadoArchivo(`📄 Procesando archivo: ${file.name}`, "info");
+
             const reader = new FileReader();
 
             reader.onload = (event) => {
                 console.log("📥 FileReader terminó correctamente.");
 
                 try {
+                    if (!event.target || !event.target.result) {
+                        throw new Error("FileReader no devolvió contenido.");
+                    }
+
                     const data = new Uint8Array(event.target.result);
 
-                    console.log("📊 Leyendo workbook con XLSX...");
+                    console.log("📊 Leyendo Excel con XLSX...");
+
                     const workbook = XLSX.read(data, {
                         type: "array",
                         cellDates: true
@@ -698,7 +751,7 @@
                     const hoja = workbook.Sheets[nombreHoja];
 
                     if (!hoja) {
-                        throw new Error("No se pudo leer la hoja principal.");
+                        throw new Error("No se pudo leer la primera hoja.");
                     }
 
                     const filas = XLSX.utils.sheet_to_json(hoja, {
@@ -708,14 +761,15 @@
                     });
 
                     console.log("✅ Hoja leída:", nombreHoja);
-                    console.log("✅ Total filas leídas:", filas.length);
+                    console.log("✅ Total filas detectadas:", filas.length);
+                    console.log("✅ Primeras filas:", filas.slice(0, 5));
 
-                    mostrarEstadoArchivo(`✅ Archivo leído. Filas detectadas: ${filas.length}`, "success");
+                    mostrarEstadoArchivo(`✅ Archivo leído correctamente. Filas detectadas: ${filas.length}`, "success");
 
                     procesarValidacion(filas, hoja);
 
                 } catch (error) {
-                    console.error("💥 Error al procesar Excel:", error);
+                    console.error("💥 Error procesando Excel:", error);
                     alert("⚠️ Error procesando el Excel. Abre F12 > Consola para ver el detalle.");
                     mostrarEstadoArchivo("❌ Error procesando el Excel.", "error");
                     fileInput.value = "";
@@ -733,7 +787,7 @@
         }
 
         /************************************************************
-         * VALIDACIÓN
+         * VALIDACIÓN — funciones auxiliares de procesarValidacion
          ************************************************************/
         function preservarFormatoVisual(hoja, filaIdx, colIdx) {
             const celda = hoja[XLSX.utils.encode_cell({ r: filaIdx, c: colIdx })];
@@ -753,7 +807,6 @@
             }
 
             const catalogo = VALORES_PERMITIDOS[idx];
-
             if (catalogo.includes(valorLimpio)) {
                 return { valorFinal: valorLimpio, error: null };
             }
@@ -765,13 +818,15 @@
             }
 
             const porcentajeFallo = Math.round(mejorSimilitud * 100);
-
             return {
                 valorFinal: null,
                 error: `Valor inválido: "${String(valorCrudo)}". Similitud más alta: ${porcentajeFallo}%`
             };
         }
 
+        /************************************************************
+         * VALIDACIÓN PRINCIPAL
+         ************************************************************/
         function procesarValidacion(filas, hoja) {
             resetearResultados();
 
@@ -805,7 +860,6 @@
                 if (hoja) {
                     const visualD = preservarFormatoVisual(hoja, i, COL.DESTINO_VISUAL);
                     const visualG = preservarFormatoVisual(hoja, i, COL.VISUAL_G);
-
                     if (visualD !== undefined) filaDatos[COL.DESTINO_VISUAL] = visualD;
                     if (visualG !== undefined) filaDatos[COL.VISUAL_G] = visualG;
                 }
@@ -815,7 +869,6 @@
 
                 const valEntrega = limpiarTexto(filaDatos[COL.ENTREGA]);
                 const valCanal = limpiarTexto(filaDatos[COL.CANAL]);
-
                 if (valEntrega === "" && valCanal === "") continue;
 
                 const numFilaVisual = i + 1;
@@ -846,11 +899,7 @@
                     const { valorFinal, error } = validarValorDeCatalogo(filaDatos[idx], idx);
 
                     if (error) {
-                        erroresBloqueantes.push({
-                            fila: numFilaVisual,
-                            col: columnaExcel(idx),
-                            msg: error
-                        });
+                        erroresBloqueantes.push({ fila: numFilaVisual, col: columnaExcel(idx), msg: error });
                         erroresEnEstaFila = true;
                     } else {
                         filaDatos[idx] = valorFinal;
@@ -959,7 +1008,6 @@
                 : 100;
 
             porcentaje = Math.max(0, Math.min(100, porcentaje));
-
             const displayPorcentaje = porcentaje === 100 ? "100" : porcentaje.toFixed(1);
             scoreText.textContent = `${displayPorcentaje}%`;
 
@@ -1053,7 +1101,6 @@
                     btnEnviar.innerHTML = textoOriginal;
                     btnEnviar.disabled = false;
                 }
-
             } catch (error) {
                 console.error("Error de envío:", error);
                 alert("⚠️ Error de red: no se obtuvo respuesta del servidor de Google. Revisa tu conexión a internet.");
@@ -1064,4 +1111,3 @@
     </script>
 </body>
 </html>
-``
