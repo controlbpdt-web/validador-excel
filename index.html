@@ -6,1432 +6,1312 @@
     <title>Validador de Consolidados</title>
 
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+        onerror="this.onerror=null;this.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';">
+    </script>
 
     <style>
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #000000; }
         ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
-
-        .svg-circle {
-            transform: rotate(-90deg);
-            transform-origin: 50% 50%;
-        }
-
-        button:disabled {
-            opacity: 0.65;
-            cursor: not-allowed;
-        }
-
-        /* Evita selección accidental en dropzone */
-        #drop-zone {
-            user-select: none;
-            -webkit-user-select: none;
-        }
+        .svg-circle { transform: rotate(-90deg); transform-origin: 50% 50%; }
+        button:disabled { opacity: 0.65; cursor: not-allowed; }
+        #drop-zone { user-select: none; -webkit-user-select: none; }
     </style>
 </head>
 
 <body class="bg-black min-h-screen p-6 font-sans text-zinc-100 selection:bg-blue-500/30 flex flex-col justify-center">
 
-    <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-40 bg-blue-600/10 blur-[150px] pointer-events-none z-0"></div>
+<div class="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-40 bg-blue-600/10 blur-[150px] pointer-events-none z-0"></div>
 
-    <!-- LOGIN -->
-    <div id="login-container" class="relative z-10 flex justify-center items-center w-full max-w-sm mx-auto transition-all duration-500">
-        <div class="bg-zinc-950 p-10 rounded-2xl shadow-2xl shadow-black border border-zinc-800/80 w-full text-center">
-            <div class="mb-6 flex justify-center">
-                <span class="text-6xl drop-shadow-[0_0_15px_rgba(37,99,235,0.3)]">🔐</span>
+<!-- LOGIN -->
+<div id="login-container" class="relative z-10 flex justify-center items-center w-full max-w-sm mx-auto transition-all duration-500">
+    <div class="bg-zinc-950 p-10 rounded-2xl shadow-2xl shadow-black border border-zinc-800/80 w-full text-center">
+        <div class="mb-6 flex justify-center">
+            <span class="text-6xl drop-shadow-[0_0_15px_rgba(37,99,235,0.3)]">🔐</span>
+        </div>
+
+        <h2 class="text-2xl font-extrabold text-white mb-2 tracking-tight">Acceso Restringido</h2>
+        <p class="text-zinc-400 text-sm mb-8">Ingresa tu número de DNI para acceder al validador.</p>
+
+        <div class="text-left mb-6">
+            <label class="block text-white text-sm font-bold mb-2 ml-1">Número de DNI</label>
+            <input
+                type="text"
+                id="dni-input"
+                maxlength="8"
+                class="w-full bg-black text-white border-2 border-zinc-700 rounded-xl p-4 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-center text-2xl tracking-[0.25em] font-bold"
+                placeholder="••••••••"
+                autocomplete="off"
+                inputmode="numeric"
+            />
+            <p id="login-error" class="text-red-400 text-sm mt-2 hidden font-medium text-center">❌ DNI no autorizado o inválido.</p>
+            <p id="login-network-error" class="text-amber-400 text-sm mt-2 hidden font-medium text-center">⚠️ Error de conexión con el servidor.</p>
+        </div>
+
+        <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.3)] transition-all text-lg flex justify-center items-center gap-2">
+            Ingresar al Sistema
+        </button>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="app-container" class="hidden bg-zinc-950 p-8 rounded-2xl shadow-2xl shadow-black w-full max-w-5xl mx-auto border border-zinc-800/80 relative overflow-hidden transition-all duration-500 z-10">
+
+    <div class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-zinc-800/80 pb-4">
+        <div>
+            <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
+            <p class="text-zinc-300 mt-1 flex items-center gap-2 flex-wrap">
+                Sube tu archivo Excel para validar la estructura.
+                <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">
+                    Fuzzy AI + Escudo Antiduplicados
+                </span>
+            </p>
+        </div>
+
+        <div class="mt-4 md:mt-0 flex flex-col items-end gap-1.5">
+            <div class="bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex flex-wrap items-center gap-2 max-w-md justify-end">
+                <span class="text-zinc-400 text-sm">Usuario:</span>
+                <span id="user-display" class="text-white font-bold tracking-wider mr-1"></span>
+                <span id="last-upload-display" class="text-zinc-400 text-xs border-l border-zinc-700 pl-2 italic"></span>
             </div>
-
-            <h2 class="text-2xl font-extrabold text-white mb-2 tracking-tight">Acceso Restringido</h2>
-            <p class="text-zinc-400 text-sm mb-8">Ingresa tu número de DNI para acceder al validador.</p>
-
-            <div class="text-left mb-6">
-                <label class="block text-white text-sm font-bold mb-2 ml-1">Número de DNI</label>
-                <input
-                    type="text"
-                    id="dni-input"
-                    maxlength="8"
-                    class="w-full bg-black text-white border-2 border-zinc-700 rounded-xl p-4 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-center text-2xl tracking-[0.25em] font-bold"
-                    placeholder="••••••••"
-                    autocomplete="off"
-                    inputmode="numeric"
-                />
-                <p id="login-error" class="text-red-400 text-sm mt-2 hidden font-medium text-center">❌ DNI no autorizado o inválido.</p>
-                <p id="login-network-error" class="text-amber-400 text-sm mt-2 hidden font-medium text-center">⚠️ Error de conexión con el servidor.</p>
-            </div>
-
-            <button id="btn-login" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.3)] transition-all text-lg flex justify-center items-center gap-2">
-                Ingresar al Sistema
+            <button id="btn-logout" class="text-zinc-500 hover:text-red-400 text-xs font-bold transition-colors underline decoration-zinc-700 underline-offset-4">
+                Cerrar Sesión Segura
             </button>
         </div>
     </div>
 
-    <!-- APP -->
-    <div id="app-container" class="hidden bg-zinc-950 p-8 rounded-2xl shadow-2xl shadow-black w-full max-w-5xl mx-auto border border-zinc-800/80 relative overflow-hidden transition-all duration-500 z-10">
+    <!-- DROPZONE DEFINITIVO -->
+    <div
+        id="drop-zone"
+        class="relative border-2 border-dashed border-zinc-600 bg-black/60 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-zinc-900/80 transition-all duration-300 group overflow-hidden"
+    >
+        <div class="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-lg opacity-80 group-hover:opacity-100">📄</div>
 
-        <div class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-zinc-800/80 pb-4">
-            <div>
-                <h1 class="text-3xl font-extrabold text-white tracking-tight">Validador de Consolidados</h1>
-                <p class="text-zinc-300 mt-1 flex items-center gap-2 flex-wrap">
-                    Sube tu archivo Excel para validar la estructura.
-                    <span class="bg-blue-500/20 text-blue-300 text-[10px] uppercase font-bold px-2 py-0.5 rounded border border-blue-500/30">
-                        Fuzzy AI + Escudo Antiduplicados
-                    </span>
-                </p>
-            </div>
+        <p class="text-white font-medium text-lg">
+            Arrastra tu Excel aquí o
+            <span class="text-blue-400 font-bold group-hover:text-blue-300 transition-colors underline underline-offset-4">
+                haz clic para subir
+            </span>
+        </p>
 
-            <div class="mt-4 md:mt-0 flex flex-col items-end gap-1.5">
-                <div class="bg-black/60 border border-zinc-700/50 px-4 py-2 rounded-lg flex flex-wrap items-center gap-2 max-w-md justify-end">
-                    <span class="text-zinc-400 text-sm">Usuario:</span>
-                    <span id="user-display" class="text-white font-bold tracking-wider mr-1"></span>
-                    <span id="last-upload-display" class="text-zinc-400 text-xs border-l border-zinc-700 pl-2 italic"></span>
-                </div>
-                <button id="btn-logout" class="text-zinc-500 hover:text-red-400 text-xs font-bold transition-colors underline decoration-zinc-700 underline-offset-4">
-                    Cerrar Sesión Segura
-                </button>
-            </div>
-        </div>
-
-        <!-- DROPZONE ROBUSTO -->
-        <div
-            id="drop-zone"
-            class="relative border-2 border-dashed border-zinc-600 bg-black/60 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-zinc-900/80 transition-all duration-300 group overflow-hidden"
+        <button
+            type="button"
+            id="btn-file-fallback"
+            class="mt-4 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-5 rounded-lg text-sm transition-all"
         >
-            <!-- Input real encima del dropzone.
-                 Es la vía más confiable cuando el navegador bloquea drag & drop. -->
-            <input
-                id="file-input"
-                type="file"
-                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                title=""
-            />
+            Seleccionar archivo manualmente
+        </button>
 
-            <div class="relative z-10 pointer-events-none">
-                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-lg opacity-80 group-hover:opacity-100">
-                    📄
-                </div>
-
-                <p class="text-white font-medium text-lg">
-                    Arrastra tu Excel aquí o
-                    <span class="text-blue-400 font-bold group-hover:text-blue-300 transition-colors">
-                        haz clic para subir
-                    </span>
-                </p>
-
-                <p id="file-status" class="text-zinc-500 text-sm mt-3 hidden"></p>
-            </div>
-        </div>
-
-        <!-- RESULTADOS -->
-        <div id="result-container" class="mt-8 hidden space-y-6">
-
-            <!-- ERRORES -->
-            <div id="error-section" class="hidden bg-red-950/40 p-6 rounded-xl border border-red-500/30 shadow-lg">
-                <div class="flex items-center gap-3 mb-4">
-                    <span class="text-2xl">🚫</span>
-                    <h3 class="text-red-400 font-bold text-xl">Errores Críticos Detectados</h3>
-                </div>
-                <p class="text-red-200 mb-4 text-sm font-medium">
-                    El archivo no se puede subir. Corrige los siguientes errores en tu Excel y vuelve a intentarlo:
-                </p>
-                <div class="max-h-64 overflow-y-auto rounded border border-red-500/20 bg-black/60">
-                    <table class="w-full text-sm text-left text-white border-collapse">
-                        <thead class="bg-red-900/60 sticky top-0 backdrop-blur-md">
-                            <tr>
-                                <th class="p-3 border-b border-red-500/20 w-24 text-center text-red-100 font-bold">Fila</th>
-                                <th class="p-3 border-b border-red-500/20 w-32 text-center text-red-100 font-bold">Columna</th>
-                                <th class="p-3 border-b border-red-500/20 text-red-100 font-bold">Detalle del Error</th>
-                            </tr>
-                        </thead>
-                        <tbody id="error-table-body" class="divide-y divide-red-500/10"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ADVERTENCIAS -->
-            <div id="warning-section" class="hidden bg-amber-950/40 p-6 rounded-xl border border-amber-500/30 shadow-lg">
-                <div class="flex items-center gap-3 mb-3">
-                    <span class="text-2xl">⚠️</span>
-                    <h3 class="text-amber-400 font-bold text-lg">Observaciones (Campos Vacíos)</h3>
-                </div>
-                <p class="text-amber-100 mb-3 text-sm font-medium">
-                    El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:
-                </p>
-                <div class="max-h-40 overflow-y-auto bg-black/60 p-4 rounded border border-amber-500/20 text-sm">
-                    <ul id="warning-list" class="list-disc pl-5 space-y-2 text-white tracking-wide"></ul>
-                </div>
-            </div>
-
-            <!-- ÉXITO -->
-            <div id="success-section" class="hidden bg-emerald-950/30 p-6 rounded-xl border border-emerald-500/30 shadow-lg">
-                <div class="flex items-center gap-3 mb-6">
-                    <span class="text-2xl">✅</span>
-                    <h3 class="text-emerald-400 font-bold text-xl tracking-wide">¡Validación Estricta Superada!</h3>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div class="bg-black/60 p-5 rounded-xl border border-emerald-500/20 flex flex-col justify-center items-center">
-                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-1">Filas Listas</p>
-                        <p id="total-filas" class="text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">0</p>
-                    </div>
-
-                    <div class="bg-black/60 p-5 rounded-xl border border-blue-500/20 flex flex-col justify-center items-center">
-                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3">Calidad de Datos</p>
-                        <div class="w-24 h-24 relative flex justify-center items-center">
-                            <svg viewBox="0 0 36 36" class="w-full h-full svg-circle">
-                                <path class="text-zinc-800" stroke-width="3.5" stroke="currentColor" fill="none"
-                                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
-                                <path id="score-circle"
-                                      class="transition-all duration-1000 ease-out"
-                                      stroke-dasharray="0, 100"
-                                      stroke-width="3.5"
-                                      stroke-linecap="round"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831">
-                                </path>
-                            </svg>
-                            <div class="absolute inset-0 flex justify-center items-center">
-                                <span id="score-text" class="text-xl font-black text-white">0%</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-black/60 p-5 rounded-xl border border-indigo-500/20 flex flex-col justify-center items-center md:items-start">
-                        <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3 border-b border-zinc-700 pb-2 w-full text-center md:text-left">
-                            Despacho
-                        </p>
-                        <div id="conteo-despacho" class="flex flex-wrap justify-center md:justify-start gap-3 text-sm w-full"></div>
-                    </div>
-                </div>
-
-                <div class="bg-black/60 p-5 rounded-xl border border-zinc-700 mb-8">
-                    <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-4 border-b border-zinc-700 pb-2">
-                        Líneas
-                    </p>
-                    <div id="conteo-lineas" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"></div>
-                </div>
-
-                <button id="btn-enviar" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50">
-                    <span>🚀</span> Guardar en el Histórico Maestro
-                </button>
-            </div>
-        </div>
+        <p id="file-status" class="text-zinc-500 text-sm mt-3 hidden"></p>
     </div>
 
-    <script>
-        "use strict";
+    <input
+        id="file-input"
+        type="file"
+        accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+        style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"
+    />
 
-        /************************************************************
-         * CAPTURA GLOBAL DE ERRORES
-         ************************************************************/
-        window.addEventListener("error", (event) => {
-            console.error("ERROR GLOBAL:", event.error || event.message);
+    <!-- RESULTADOS -->
+    <div id="result-container" class="mt-8 hidden space-y-6">
+
+        <div id="error-section" class="hidden bg-red-950/40 p-6 rounded-xl border border-red-500/30 shadow-lg">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="text-2xl">🚫</span>
+                <h3 class="text-red-400 font-bold text-xl">Errores Críticos Detectados</h3>
+            </div>
+            <p class="text-red-200 mb-4 text-sm font-medium">
+                El archivo no se puede subir. Corrige los siguientes errores en tu Excel y vuelve a intentarlo:
+            </p>
+            <div class="max-h-64 overflow-y-auto rounded border border-red-500/20 bg-black/60">
+                <table class="w-full text-sm text-left text-white border-collapse">
+                    <thead class="bg-red-900/60 sticky top-0 backdrop-blur-md">
+                    <tr>
+                        <th class="p-3 border-b border-red-500/20 w-24 text-center text-red-100 font-bold">Fila</th>
+                        <th class="p-3 border-b border-red-500/20 w-32 text-center text-red-100 font-bold">Columna</th>
+                        <th class="p-3 border-b border-red-500/20 text-red-100 font-bold">Detalle del Error</th>
+                    </tr>
+                    </thead>
+                    <tbody id="error-table-body" class="divide-y divide-red-500/10"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="warning-section" class="hidden bg-amber-950/40 p-6 rounded-xl border border-amber-500/30 shadow-lg">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="text-2xl">⚠️</span>
+                <h3 class="text-amber-400 font-bold text-lg">Observaciones (Campos Vacíos)</h3>
+            </div>
+            <p class="text-amber-100 mb-3 text-sm font-medium">
+                El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:
+            </p>
+            <div class="max-h-40 overflow-y-auto bg-black/60 p-4 rounded border border-amber-500/20 text-sm">
+                <ul id="warning-list" class="list-disc pl-5 space-y-2 text-white tracking-wide"></ul>
+            </div>
+        </div>
+
+        <div id="success-section" class="hidden bg-emerald-950/30 p-6 rounded-xl border border-emerald-500/30 shadow-lg">
+            <div class="flex items-center gap-3 mb-6">
+                <span class="text-2xl">✅</span>
+                <h3 class="text-emerald-400 font-bold text-xl tracking-wide">¡Validación Estricta Superada!</h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-black/60 p-5 rounded-xl border border-emerald-500/20 flex flex-col justify-center items-center">
+                    <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-1">Filas Listas</p>
+                    <p id="total-filas" class="text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">0</p>
+                </div>
+
+                <div class="bg-black/60 p-5 rounded-xl border border-blue-500/20 flex flex-col justify-center items-center">
+                    <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3">Calidad de Datos</p>
+                    <div class="w-24 h-24 relative flex justify-center items-center">
+                        <svg viewBox="0 0 36 36" class="w-full h-full svg-circle">
+                            <path class="text-zinc-800" stroke-width="3.5" stroke="currentColor" fill="none"
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                            <path id="score-circle" class="transition-all duration-1000 ease-out"
+                                  stroke-dasharray="0, 100" stroke-width="3.5" stroke-linecap="round"
+                                  fill="none" stroke="currentColor"
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                        </svg>
+                        <div class="absolute inset-0 flex justify-center items-center">
+                            <span id="score-text" class="text-xl font-black text-white">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-black/60 p-5 rounded-xl border border-indigo-500/20 flex flex-col justify-center items-center md:items-start">
+                    <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-3 border-b border-zinc-700 pb-2 w-full text-center md:text-left">
+                        Despacho
+                    </p>
+                    <div id="conteo-despacho" class="flex flex-wrap justify-center md:justify-start gap-3 text-sm w-full"></div>
+                </div>
+            </div>
+
+            <div class="bg-black/60 p-5 rounded-xl border border-zinc-700 mb-8">
+                <p class="text-zinc-300 text-xs uppercase font-extrabold tracking-widest mb-4 border-b border-zinc-700 pb-2">
+                    Líneas
+                </p>
+                <div id="conteo-lineas" class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"></div>
+            </div>
+
+            <button id="btn-enviar" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(37,99,235,0.4)] transition-all duration-300 transform hover:-translate-y-1 flex justify-center items-center gap-2 text-xl border border-blue-400/50">
+                <span>🚀</span> Guardar en el Histórico Maestro
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+"use strict";
+
+/************************************************************
+ * ERRORES GLOBALES
+ ************************************************************/
+window.addEventListener("error", e => console.error("ERROR GLOBAL:", e.error || e.message));
+window.addEventListener("unhandledrejection", e => console.error("PROMESA RECHAZADA:", e.reason));
+
+/************************************************************
+ * CONFIG
+ ************************************************************/
+const URL_GAS = "https://script.google.com/macros/s/AKfycbx4D0jiXK93V5ihGhO8bVQR1oQsfRn-VT7MHtdarDLZi_cHku_rtCHCKPIuD9ZP-WFs/exec";
+const TIEMPO_SESION_HORAS = 8;
+const UMBRAL_FUZZY = 0.49;
+const TOTAL_COLUMNAS_ESPERADAS = 19;
+const FILA_ENCABEZADOS_IDX = 3;
+const FILA_INICIO_DATOS_IDX = 4;
+const FETCH_TIMEOUT_MS = 45000;
+
+const COL = {
+    FECHA: 0,
+    AREA_OLT: 1,
+    ENTREGA: 2,
+    FACTURA: 3,
+    GUIA: 4,
+    VISUAL_G: 6,
+    LINEA: 11,
+    REGION: 15,
+    TIPO_TRANSPORTE: 16,
+    TEMPERATURA: 17
+};
+
+const VALORES_PERMITIDOS = {
+    1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"],
+    11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"],
+    15: ["LIMA", "PROVINCIA"],
+    16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO", "RECOJO CLIENTE"],
+    17: ["SECO", "REFRIGERADO", "CLIMATIZADO"]
+};
+
+const HOMOLOGACION_FORZADA = {
+    1: {
+        "AREAS CLAVES": "ÁREAS CLAVES"
+    },
+    11: {
+        "ADIUM": "TECNOFARMA",
+        "ELEA PERU": "ELEA"
+    },
+    16: {
+        "RECOGE CLIENTE": "RECOJO CLIENTE",
+        "RECOGE EL CLIENTE": "RECOJO CLIENTE",
+        "RECOJO DEL CLIENTE": "RECOJO CLIENTE",
+        "RECOJO CLIENTES": "RECOJO CLIENTE"
+    }
+};
+
+const COLS_ADVERTENCIA = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14];
+
+let usuarioActualDNI = "";
+let tokenSesionActual = "";
+let datosListosParaEnviar = [];
+let archivoProcesandose = false;
+let dragCounter = 0;
+let resetDragTimer = null;
+
+/************************************************************
+ * DOM
+ ************************************************************/
+const inputDNI = document.getElementById("dni-input");
+const btnLogin = document.getElementById("btn-login");
+const btnLogout = document.getElementById("btn-logout");
+const fileInput = document.getElementById("file-input");
+const dropZone = document.getElementById("drop-zone");
+const btnFileFallback = document.getElementById("btn-file-fallback");
+const fileStatus = document.getElementById("file-status");
+
+const resultContainer = document.getElementById("result-container");
+const errorSection = document.getElementById("error-section");
+const warningSection = document.getElementById("warning-section");
+const successSection = document.getElementById("success-section");
+const errorTableBody = document.getElementById("error-table-body");
+const warningList = document.getElementById("warning-list");
+const scoreCircle = document.getElementById("score-circle");
+const scoreText = document.getElementById("score-text");
+const totalFilas = document.getElementById("total-filas");
+const conteoDespacho = document.getElementById("conteo-despacho");
+const conteoLineas = document.getElementById("conteo-lineas");
+const btnEnviar = document.getElementById("btn-enviar");
+const loginErrorMsg = document.getElementById("login-error");
+const loginNetworkErrorMsg = document.getElementById("login-network-error");
+const lastUploadDisplay = document.getElementById("last-upload-display");
+const userDisplay = document.getElementById("user-display");
+
+console.log("✅ Script cargado");
+console.log("📦 XLSX disponible:", typeof XLSX !== "undefined");
+
+/************************************************************
+ * HELPERS
+ ************************************************************/
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function limpiarTexto(txt) {
+    return txt !== undefined && txt !== null ? String(txt).trim().toUpperCase() : "";
+}
+
+function columnaExcel(index) {
+    let col = "";
+    let n = index + 1;
+    while (n > 0) {
+        const rem = (n - 1) % 26;
+        col = String.fromCharCode(65 + rem) + col;
+        n = Math.floor((n - 1) / 26);
+    }
+    return col;
+}
+
+function obtenerNombreColumna(encabezados, idx) {
+    return encabezados[idx] ? String(encabezados[idx]).trim() : `Columna ${columnaExcel(idx)}`;
+}
+
+function mostrarEstadoArchivo(mensaje, tipo = "info") {
+    if (!fileStatus) return;
+
+    fileStatus.classList.remove(
+        "hidden",
+        "text-zinc-500",
+        "text-blue-400",
+        "text-red-400",
+        "text-emerald-400",
+        "text-amber-400"
+    );
+
+    const color = {
+        info: "text-blue-400",
+        error: "text-red-400",
+        success: "text-emerald-400",
+        warning: "text-amber-400",
+        neutral: "text-zinc-500"
+    }[tipo] || "text-zinc-500";
+
+    fileStatus.classList.add(color);
+    fileStatus.textContent = mensaje;
+}
+
+function fetchConTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(id));
+}
+
+function validarXLSXDisponible() {
+    return typeof XLSX !== "undefined" &&
+        XLSX &&
+        typeof XLSX.read === "function" &&
+        XLSX.utils &&
+        typeof XLSX.utils.sheet_to_json === "function";
+}
+
+function normalizarFila(row, totalCols = TOTAL_COLUMNAS_ESPERADAS) {
+    return Array.from({ length: totalCols }, (_, c) => {
+        if (!row || row[c] === undefined || row[c] === null) return "";
+        return row[c];
+    });
+}
+
+/************************************************************
+ * FECHAS
+ ************************************************************/
+function formatDateDDMMYYYY(date) {
+    const d = String(date.getDate()).padStart(2, "0");
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+}
+
+function parseRealDateFromString(value) {
+    const txt = String(value).trim();
+    const match = txt.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if (!match) return null;
+
+    let p1 = Number(match[1]);
+    let p2 = Number(match[2]);
+    let year = Number(match[3]);
+
+    if (year < 100) year += 2000;
+
+    let day;
+    let month;
+
+    if (p2 > 12 && p1 <= 12) {
+        month = p1;
+        day = p2;
+    } else {
+        day = p1;
+        month = p2;
+    }
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+    const date = new Date(year, month - 1, day);
+
+    return (
+        date.getFullYear() === year &&
+        date.getMonth() === month - 1 &&
+        date.getDate() === day
+    ) ? date : null;
+}
+
+function normalizarFecha(valor) {
+    if (valor === null || valor === undefined || valor === "") return "";
+
+    if (valor instanceof Date && !isNaN(valor.getTime())) {
+        return formatDateDDMMYYYY(valor);
+    }
+
+    if (typeof valor === "number" && Number.isFinite(valor)) {
+        const parsed = XLSX?.SSF?.parse_date_code ? XLSX.SSF.parse_date_code(valor) : null;
+        if (parsed && parsed.y && parsed.m && parsed.d) {
+            const date = new Date(parsed.y, parsed.m - 1, parsed.d);
+            if (!isNaN(date.getTime())) return formatDateDDMMYYYY(date);
+        }
+    }
+
+    if (typeof valor === "string") {
+        const date = parseRealDateFromString(valor);
+        if (date) return formatDateDDMMYYYY(date);
+    }
+
+    return "";
+}
+
+/************************************************************
+ * FUZZY Y HUELLA
+ ************************************************************/
+function calcularSimilitud(s1, s2) {
+    const a = String(s1 ?? "");
+    const b = String(s2 ?? "");
+
+    if (a === b) return 1;
+
+    let longer = a;
+    let shorter = b;
+
+    if (a.length < b.length) {
+        longer = b;
+        shorter = a;
+    }
+
+    const longerLength = longer.length;
+    if (longerLength === 0) return 1;
+
+    const costs = new Array(shorter.length + 1);
+
+    for (let j = 0; j <= shorter.length; j++) costs[j] = j;
+
+    for (let i = 1; i <= longer.length; i++) {
+        let lastValue = i;
+        for (let j = 1; j <= shorter.length; j++) {
+            const newValue = longer.charAt(i - 1) === shorter.charAt(j - 1)
+                ? costs[j - 1]
+                : Math.min(costs[j - 1], costs[j], lastValue) + 1;
+
+            costs[j - 1] = lastValue;
+            lastValue = newValue;
+        }
+        costs[shorter.length] = lastValue;
+    }
+
+    return (longerLength - costs[shorter.length]) / longerLength;
+}
+
+function encontrarMejorCoincidencia(valor, listaPermitidos) {
+    let mejorSimilitud = 0;
+    let mejorCoincidencia = "";
+
+    for (const permitido of listaPermitidos) {
+        const similitud = calcularSimilitud(valor, permitido);
+        if (similitud > mejorSimilitud) {
+            mejorSimilitud = similitud;
+            mejorCoincidencia = permitido;
+            if (mejorSimilitud === 1) break;
+        }
+    }
+
+    return { mejorSimilitud, mejorCoincidencia };
+}
+
+function generarHuellaDigital(textoFila) {
+    let h1 = 0xdeadbeef;
+    let h2 = 0x41c6ce57;
+
+    for (let i = 0; i < textoFila.length; i++) {
+        const ch = textoFila.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+
+    const hash = 4294967296 * (2097151 & h2) + (h1 >>> 0);
+    return `ID_${hash}`;
+}
+
+/************************************************************
+ * UI
+ ************************************************************/
+function resetearResultados() {
+    resultContainer.classList.add("hidden");
+    errorSection.classList.add("hidden");
+    warningSection.classList.add("hidden");
+    successSection.classList.add("hidden");
+
+    errorTableBody.innerHTML = "";
+    warningList.innerHTML = "";
+    conteoDespacho.innerHTML = "";
+    conteoLineas.innerHTML = "";
+    totalFilas.textContent = "0";
+    scoreText.textContent = "0%";
+    scoreCircle.setAttribute("stroke-dasharray", "0, 100");
+    scoreCircle.className = "transition-all duration-1000 ease-out";
+
+    datosListosParaEnviar = [];
+}
+
+function actualizarDisplayUltimaCarga(dni) {
+    const ultimaCarga = localStorage.getItem("fecha_ultima_carga_" + dni);
+
+    if (ultimaCarga) {
+        lastUploadDisplay.innerHTML = `Última carga: <span class="text-blue-400 font-semibold">${escapeHTML(ultimaCarga)}</span>`;
+    } else {
+        lastUploadDisplay.textContent = "Sin cargas registradas";
+    }
+}
+
+/************************************************************
+ * LOGIN
+ ************************************************************/
+window.addEventListener("load", () => {
+    const sesionGuardada = localStorage.getItem("validador_sesion_segura");
+    if (!sesionGuardada) return;
+
+    try {
+        const sesion = JSON.parse(sesionGuardada);
+        const ahora = Date.now();
+
+        const valida =
+            sesion &&
+            sesion.dni &&
+            sesion.token &&
+            /^\d{8}$/.test(String(sesion.dni)) &&
+            Number.isFinite(Number(sesion.timestamp)) &&
+            ahora - Number(sesion.timestamp) < TIEMPO_SESION_HORAS * 60 * 60 * 1000;
+
+        if (valida) {
+            iniciarApp(String(sesion.dni), String(sesion.token));
+        } else {
+            localStorage.removeItem("validador_sesion_segura");
+        }
+    } catch {
+        localStorage.removeItem("validador_sesion_segura");
+    }
+});
+
+inputDNI.addEventListener("input", () => {
+    inputDNI.value = inputDNI.value.replace(/\D/g, "").slice(0, 8);
+    loginErrorMsg.classList.add("hidden");
+    loginNetworkErrorMsg.classList.add("hidden");
+});
+
+function mostrarErrorLogin() {
+    loginErrorMsg.classList.remove("hidden");
+    inputDNI.classList.add("animate-bounce");
+    setTimeout(() => inputDNI.classList.remove("animate-bounce"), 500);
+}
+
+async function procesarLogin() {
+    const dni = inputDNI.value.replace(/\D/g, "");
+
+    loginErrorMsg.classList.add("hidden");
+    loginNetworkErrorMsg.classList.add("hidden");
+
+    if (!/^\d{8}$/.test(dni)) {
+        mostrarErrorLogin();
+        return;
+    }
+
+    btnLogin.innerHTML = "Validando DNI...";
+    btnLogin.disabled = true;
+
+    try {
+        const respuesta = await fetchConTimeout(`${URL_GAS}?action=login&dni=${encodeURIComponent(dni)}`, {
+            method: "GET",
+            cache: "no-store"
         });
 
-        window.addEventListener("unhandledrejection", (event) => {
-            console.error("PROMESA RECHAZADA:", event.reason);
-        });
+        if (!respuesta.ok) throw new Error("HTTP " + respuesta.status);
 
-        /************************************************************
-         * CONFIGURACIÓN
-         ************************************************************/
-        const URL_GAS = "https://script.google.com/macros/s/AKfycbx4D0jiXK93V5ihGhO8bVQR1oQsfRn-VT7MHtdarDLZi_cHku_rtCHCKPIuD9ZP-WFs/exec";
-        const TIEMPO_SESION_HORAS = 8;
-        const UMBRAL_FUZZY = 0.49;
-        const TOTAL_COLUMNAS_ESPERADAS = 19;
-        const FILA_ENCABEZADOS_IDX = 3;
-        const FILA_INICIO_DATOS_IDX = 4;
-        const FETCH_TIMEOUT_MS = 45000;
+        const datos = await respuesta.json();
 
-        const COL = {
-            FECHA: 0,
-            AREA_OLT: 1,
-            ENTREGA: 2,
-            DESTINO_VISUAL: 3,
-            CANAL: 4,
-            VISUAL_G: 6,
-            LINEA: 11,
-            REGION: 15,
-            TIPO_DESPACHO_TEXTO: 15,
-            TIPO_TRANSPORTE: 16,
-            TEMPERATURA: 17
-        };
-
-        const VALORES_PERMITIDOS = {
-            1: ["OLT SALUD", "ÁREAS CLAVES", "AREAS CLAVES", "OLT CONSUMO"],
-            11: ["CLINICA INTERNACIONAL", "BONAPHARM", "RECKITT BENCKISER", "OMPHARMA", "FAES FARMA", "TAKEDA", "BIOPAS", "ELEA", "TECNOFARMA", "FERQUIM", "GENOMMA LAB"],
-            15: ["LIMA", "PROVINCIA"],
-            16: ["CD SANTA ANITA", "EXCLUSIVO", "AEREO", "TERRESTRE", "EN RUTA", "RECOJO", "RECOJO CLIENTE"],
-            17: ["SECO", "REFRIGERADO", "CLIMATIZADO"]
-        };
-
-        const HOMOLOGACION_FORZADA = {
-            1: {
-                "AREAS CLAVES": "ÁREAS CLAVES"
-            },
-            11: {
-                "ADIUM": "TECNOFARMA",
-                "ELEA PERU": "ELEA"
-            },
-            16: {
-                "RECOGE CLIENTE": "RECOJO CLIENTE",
-                "RECOGE EL CLIENTE": "RECOJO CLIENTE",
-                "RECOJO DEL CLIENTE": "RECOJO CLIENTE",
-                "RECOJO CLIENTES": "RECOJO CLIENTE"
-            }
-        };
-
-        const COLS_ADVERTENCIA = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14];
-
-        let usuarioActualDNI = "";
-        let tokenSesionActual = "";
-        let datosListosParaEnviar = [];
-        let archivoProcesandose = false;
-        let dragCounter = 0;
-
-        /************************************************************
-         * DOM
-         ************************************************************/
-        const inputDNI = document.getElementById("dni-input");
-        const btnLogin = document.getElementById("btn-login");
-        const btnLogout = document.getElementById("btn-logout");
-        const fileInput = document.getElementById("file-input");
-        const dropZone = document.getElementById("drop-zone");
-        const fileStatus = document.getElementById("file-status");
-
-        const resultContainer = document.getElementById("result-container");
-        const errorSection = document.getElementById("error-section");
-        const warningSection = document.getElementById("warning-section");
-        const successSection = document.getElementById("success-section");
-        const errorTableBody = document.getElementById("error-table-body");
-        const warningList = document.getElementById("warning-list");
-        const scoreCircle = document.getElementById("score-circle");
-        const scoreText = document.getElementById("score-text");
-        const totalFilas = document.getElementById("total-filas");
-        const conteoDespacho = document.getElementById("conteo-despacho");
-        const conteoLineas = document.getElementById("conteo-lineas");
-        const btnEnviar = document.getElementById("btn-enviar");
-        const loginErrorMsg = document.getElementById("login-error");
-        const loginNetworkErrorMsg = document.getElementById("login-network-error");
-        const lastUploadDisplay = document.getElementById("last-upload-display");
-        const userDisplay = document.getElementById("user-display");
-
-        console.log("✅ Script principal cargado.");
-        console.log("📦 XLSX disponible:", typeof XLSX !== "undefined");
-
-        /************************************************************
-         * HELPERS GENERALES
-         ************************************************************/
-        function escapeHTML(value) {
-            return String(value ?? "")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+        if (datos && datos.autorizado && datos.token) {
+            localStorage.setItem("validador_sesion_segura", JSON.stringify({
+                dni,
+                token: datos.token,
+                timestamp: Date.now()
+            }));
+            iniciarApp(dni, datos.token);
+        } else {
+            mostrarErrorLogin();
         }
+    } catch (error) {
+        console.error("Error login:", error);
+        loginNetworkErrorMsg.classList.remove("hidden");
+    } finally {
+        btnLogin.innerHTML = "Ingresar al Sistema";
+        btnLogin.disabled = false;
+    }
+}
 
-        function limpiarTexto(txt) {
-            return txt !== undefined && txt !== null ? String(txt).trim().toUpperCase() : "";
+function iniciarApp(dniValidado, token) {
+    usuarioActualDNI = dniValidado;
+    tokenSesionActual = token;
+
+    const loginContainer = document.getElementById("login-container");
+    const appContainer = document.getElementById("app-container");
+
+    loginContainer.classList.add("opacity-0", "scale-95");
+
+    setTimeout(() => {
+        loginContainer.classList.add("hidden");
+        appContainer.classList.remove("hidden");
+        userDisplay.textContent = usuarioActualDNI;
+        actualizarDisplayUltimaCarga(usuarioActualDNI);
+
+        appContainer.classList.add("opacity-0", "translate-y-4");
+
+        setTimeout(() => {
+            appContainer.classList.remove("opacity-0", "translate-y-4");
+            mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
+        }, 50);
+    }, 250);
+}
+
+btnLogin.addEventListener("click", procesarLogin);
+
+inputDNI.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+        e.preventDefault();
+        procesarLogin();
+    }
+});
+
+btnLogout.addEventListener("click", () => {
+    localStorage.removeItem("validador_sesion_segura");
+    location.reload();
+});
+
+/************************************************************
+ * CARGA DE ARCHIVO DEFINITIVA
+ ************************************************************/
+function limpiarTimerDrag() {
+    if (resetDragTimer) {
+        clearTimeout(resetDragTimer);
+        resetDragTimer = null;
+    }
+}
+
+function programarResetDrag() {
+    limpiarTimerDrag();
+
+    resetDragTimer = setTimeout(() => {
+        if (!archivoProcesandose) {
+            resetEstadoDropZone();
+            mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
         }
+    }, 1800);
+}
 
-        function columnaExcel(index) {
-            let col = "";
-            let n = index + 1;
+function resetEstadoDropZone() {
+    dragCounter = 0;
+    limpiarTimerDrag();
 
-            while (n > 0) {
-                const rem = (n - 1) % 26;
-                col = String.fromCharCode(65 + rem) + col;
-                n = Math.floor((n - 1) / 26);
-            }
+    dropZone.classList.remove(
+        "border-blue-500",
+        "border-emerald-500",
+        "border-red-500",
+        "bg-zinc-900",
+        "bg-blue-950/20",
+        "bg-emerald-950/20",
+        "bg-red-950/20"
+    );
+}
 
-            return col;
-        }
+function activarEstadoDropZone() {
+    if (archivoProcesandose) return;
 
-        function obtenerNombreColumna(encabezados, idx) {
-            const encabezado = encabezados[idx];
-            return encabezado ? String(encabezado).trim() : `Columna ${columnaExcel(idx)}`;
-        }
+    dropZone.classList.remove("border-red-500", "bg-red-950/20", "border-emerald-500", "bg-emerald-950/20");
+    dropZone.classList.add("border-blue-500", "bg-blue-950/20");
 
-        function mostrarEstadoArchivo(mensaje, tipo = "info") {
-            if (!fileStatus) return;
+    mostrarEstadoArchivo("📄 Suelta el archivo Excel aquí...", "info");
+    programarResetDrag();
+}
 
-            fileStatus.classList.remove(
-                "hidden",
-                "text-zinc-500",
-                "text-blue-400",
-                "text-red-400",
-                "text-emerald-400",
-                "text-amber-400"
-            );
+function marcarDropZoneExito() {
+    resetEstadoDropZone();
+    dropZone.classList.add("border-emerald-500", "bg-emerald-950/20");
+}
 
-            const color = {
-                info: "text-blue-400",
-                error: "text-red-400",
-                success: "text-emerald-400",
-                warning: "text-amber-400",
-                neutral: "text-zinc-500"
-            }[tipo] || "text-zinc-500";
+function marcarDropZoneError() {
+    resetEstadoDropZone();
+    dropZone.classList.add("border-red-500", "bg-red-950/20");
+}
 
-            fileStatus.classList.add(color);
-            fileStatus.textContent = mensaje;
-        }
+function abrirSelectorNativo() {
+    if (archivoProcesandose) {
+        mostrarEstadoArchivo("⏳ Ya se está procesando un archivo. Espera un momento...", "warning");
+        return;
+    }
 
-        function fetchConTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    resetEstadoDropZone();
+    fileInput.value = "";
+    mostrarEstadoArchivo("📂 Selecciona un archivo Excel...", "info");
+    fileInput.click();
+}
 
-            return fetch(url, {
-                ...options,
-                signal: controller.signal
-            }).finally(() => clearTimeout(timeoutId));
-        }
+function obtenerArchivoDesdeEventoDrop(e) {
+    if (!e || !e.dataTransfer) return null;
 
-        function validarXLSXDisponible() {
-            return typeof XLSX !== "undefined" &&
-                   XLSX &&
-                   typeof XLSX.read === "function" &&
-                   XLSX.utils &&
-                   typeof XLSX.utils.sheet_to_json === "function";
-        }
+    const dt = e.dataTransfer;
 
-        function normalizarFila(row, totalCols = TOTAL_COLUMNAS_ESPERADAS) {
-            return Array.from({ length: totalCols }, (_, c) => {
-                if (!row || row[c] === undefined || row[c] === null) return "";
-                return row[c];
-            });
-        }
+    if (dt.files && dt.files.length > 0) return dt.files[0];
 
-        /************************************************************
-         * FECHAS
-         ************************************************************/
-        function formatDateDDMMYYYY(date) {
-            const d = String(date.getDate()).padStart(2, "0");
-            const m = String(date.getMonth() + 1).padStart(2, "0");
-            const y = date.getFullYear();
-            return `${d}/${m}/${y}`;
-        }
-
-        function parseRealDateFromString(value) {
-            const txt = String(value).trim();
-
-            const match = txt.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-
-            if (!match) return null;
-
-            let day = Number(match[1]);
-            let month = Number(match[2]);
-            let year = Number(match[3]);
-
-            if (year < 100) year += 2000;
-            if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-
-            const date = new Date(year, month - 1, day);
-
-            const isValid =
-                date.getFullYear() === year &&
-                date.getMonth() === month - 1 &&
-                date.getDate() === day;
-
-            return isValid ? date : null;
-        }
-
-        function normalizarFecha(valor) {
-            if (valor === null || valor === undefined || valor === "") return "";
-
-            if (valor instanceof Date && !isNaN(valor.getTime())) {
-                return formatDateDDMMYYYY(valor);
-            }
-
-            if (typeof valor === "number" && Number.isFinite(valor)) {
-                const parsed = XLSX?.SSF?.parse_date_code ? XLSX.SSF.parse_date_code(valor) : null;
-
-                if (parsed && parsed.y && parsed.m && parsed.d) {
-                    const date = new Date(parsed.y, parsed.m - 1, parsed.d);
-                    if (!isNaN(date.getTime())) {
-                        return formatDateDDMMYYYY(date);
-                    }
-                }
-            }
-
-            if (typeof valor === "string") {
-                const date = parseRealDateFromString(valor);
-                if (date) return formatDateDDMMYYYY(date);
-            }
-
-            return "";
-        }
-
-        /************************************************************
-         * SIMILITUD Y HUELLA DIGITAL
-         ************************************************************/
-        function calcularSimilitud(s1, s2) {
-            const a = String(s1 ?? "");
-            const b = String(s2 ?? "");
-
-            if (a === b) return 1;
-
-            let longer = a;
-            let shorter = b;
-
-            if (a.length < b.length) {
-                longer = b;
-                shorter = a;
-            }
-
-            const longerLength = longer.length;
-            if (longerLength === 0) return 1;
-
-            const costs = new Array(shorter.length + 1);
-
-            for (let j = 0; j <= shorter.length; j++) {
-                costs[j] = j;
-            }
-
-            for (let i = 1; i <= longer.length; i++) {
-                let lastValue = i;
-
-                for (let j = 1; j <= shorter.length; j++) {
-                    const newValue =
-                        longer.charAt(i - 1) === shorter.charAt(j - 1)
-                            ? costs[j - 1]
-                            : Math.min(costs[j - 1], costs[j], lastValue) + 1;
-
-                    costs[j - 1] = lastValue;
-                    lastValue = newValue;
-                }
-
-                costs[shorter.length] = lastValue;
-            }
-
-            return (longerLength - costs[shorter.length]) / longerLength;
-        }
-
-        function encontrarMejorCoincidencia(valor, listaPermitidos) {
-            let mejorSimilitud = 0;
-            let mejorCoincidencia = "";
-
-            for (const permitido of listaPermitidos) {
-                const similitud = calcularSimilitud(valor, permitido);
-
-                if (similitud > mejorSimilitud) {
-                    mejorSimilitud = similitud;
-                    mejorCoincidencia = permitido;
-
-                    if (mejorSimilitud === 1) break;
-                }
-            }
-
-            return { mejorSimilitud, mejorCoincidencia };
-        }
-
-        function generarHuellaDigital(textoFila) {
-            let h1 = 0xdeadbeef;
-            let h2 = 0x41c6ce57;
-
-            for (let i = 0; i < textoFila.length; i++) {
-                const ch = textoFila.charCodeAt(i);
-                h1 = Math.imul(h1 ^ ch, 2654435761);
-                h2 = Math.imul(h2 ^ ch, 1597334677);
-            }
-
-            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^
-                 Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-
-            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^
-                 Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-
-            const hash = 4294967296 * (2097151 & h2) + (h1 >>> 0);
-            return `ID_${hash}`;
-        }
-
-        /************************************************************
-         * UI
-         ************************************************************/
-        function resetearResultados() {
-            resultContainer.classList.add("hidden");
-            errorSection.classList.add("hidden");
-            warningSection.classList.add("hidden");
-            successSection.classList.add("hidden");
-
-            errorTableBody.innerHTML = "";
-            warningList.innerHTML = "";
-            conteoDespacho.innerHTML = "";
-            conteoLineas.innerHTML = "";
-            totalFilas.textContent = "0";
-            scoreText.textContent = "0%";
-
-            scoreCircle.setAttribute("stroke-dasharray", "0, 100");
-            scoreCircle.className = "transition-all duration-1000 ease-out";
-
-            datosListosParaEnviar = [];
-        }
-
-        function actualizarDisplayUltimaCarga(dni) {
-            const ultimaCarga = localStorage.getItem("fecha_ultima_carga_" + dni);
-
-            if (ultimaCarga) {
-                lastUploadDisplay.innerHTML = `Última carga: <span class="text-blue-400 font-semibold">${escapeHTML(ultimaCarga)}</span>`;
-            } else {
-                lastUploadDisplay.textContent = "Sin cargas registradas";
+    if (dt.items && dt.items.length > 0) {
+        for (const item of dt.items) {
+            if (item.kind === "file") {
+                const file = item.getAsFile();
+                if (file) return file;
             }
         }
+    }
 
-        /************************************************************
-         * SESIÓN / LOGIN
-         ************************************************************/
-        window.addEventListener("load", () => {
-            const sesionGuardada = localStorage.getItem("validador_sesion_segura");
+    return null;
+}
 
-            if (!sesionGuardada) return;
+function archivoExcelValido(file) {
+    if (!file) return { ok: false, msg: "No se recibió archivo." };
 
+    const nombre = String(file.name || "").toLowerCase().trim();
+
+    if (!nombre.endsWith(".xlsx") && !nombre.endsWith(".xls")) {
+        return { ok: false, msg: "Solo se permiten archivos Excel (.xlsx o .xls)." };
+    }
+
+    if (!file.size || file.size <= 0) {
+        return { ok: false, msg: "El archivo está vacío o no se pudo leer correctamente." };
+    }
+
+    return { ok: true, msg: "Archivo válido." };
+}
+
+function manejarArchivoSeleccionado(file, origen = "manual") {
+    console.log(`📥 Archivo recibido por ${origen}:`, file);
+
+    resetEstadoDropZone();
+
+    if (archivoProcesandose) {
+        mostrarEstadoArchivo("⏳ Ya se está procesando un archivo. Espera un momento...", "warning");
+        return;
+    }
+
+    const validacion = archivoExcelValido(file);
+
+    if (!validacion.ok) {
+        marcarDropZoneError();
+        mostrarEstadoArchivo("⚠️ " + validacion.msg, "warning");
+        alert("⚠️ " + validacion.msg);
+        fileInput.value = "";
+        return;
+    }
+
+    if (!validarXLSXDisponible()) {
+        marcarDropZoneError();
+        mostrarEstadoArchivo("❌ La librería XLSX no cargó. Revisa conexión o firewall.", "error");
+        alert("❌ La librería XLSX no cargó. Revisa conexión, firewall o CDN.");
+        fileInput.value = "";
+        return;
+    }
+
+    marcarDropZoneExito();
+    procesarArchivo(file);
+}
+
+/* Evita que el navegador abra el Excel como página */
+document.addEventListener("dragover", e => e.preventDefault(), false);
+document.addEventListener("drop", e => e.preventDefault(), false);
+
+dropZone.addEventListener("dragenter", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter++;
+    activarEstadoDropZone();
+});
+
+dropZone.addEventListener("dragover", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    activarEstadoDropZone();
+});
+
+dropZone.addEventListener("dragleave", e => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    dragCounter = Math.max(0, dragCounter - 1);
+
+    if (dragCounter === 0 && !archivoProcesandose) {
+        resetEstadoDropZone();
+        mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
+    }
+});
+
+dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    resetEstadoDropZone();
+
+    const file = obtenerArchivoDesdeEventoDrop(e);
+
+    if (!file) {
+        mostrarEstadoArchivo("⚠️ El navegador bloqueó el arrastre. Usa el botón Seleccionar archivo manualmente.", "warning");
+        return;
+    }
+
+    manejarArchivoSeleccionado(file, "arrastre");
+});
+
+dropZone.addEventListener("click", e => {
+    if (e.target && e.target.id === "btn-file-fallback") return;
+    abrirSelectorNativo();
+});
+
+btnFileFallback.addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    abrirSelectorNativo();
+});
+
+fileInput.addEventListener("change", e => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    resetEstadoDropZone();
+
+    const files = e.currentTarget.files;
+
+    if (!files || files.length === 0) {
+        mostrarEstadoArchivo("⚠️ No se seleccionó archivo.", "warning");
+        return;
+    }
+
+    manejarArchivoSeleccionado(files[0], "selector nativo");
+});
+
+["drop", "dragend", "blur"].forEach(eventName => {
+    window.addEventListener(eventName, () => {
+        if (!archivoProcesandose) {
+            resetEstadoDropZone();
+            mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
+        }
+    });
+});
+
+document.addEventListener("mouseleave", () => {
+    if (!archivoProcesandose) {
+        resetEstadoDropZone();
+    }
+});
+
+function procesarArchivo(file) {
+    console.log("🚀 INICIO procesarArchivo:", file);
+
+    if (archivoProcesandose) return;
+
+    archivoProcesandose = true;
+    resetearResultados();
+
+    try {
+        if (!file) throw new Error("Archivo indefinido.");
+        if (!validarXLSXDisponible()) throw new Error("La librería XLSX no está cargada.");
+
+        const validacion = archivoExcelValido(file);
+        if (!validacion.ok) throw new Error(validacion.msg);
+
+        mostrarEstadoArchivo(`📄 Procesando archivo: ${file.name}`, "info");
+
+        const reader = new FileReader();
+
+        reader.onload = event => {
             try {
-                const sesion = JSON.parse(sesionGuardada);
-                const ahora = Date.now();
-
-                const sesionValida =
-                    sesion &&
-                    sesion.dni &&
-                    sesion.token &&
-                    /^\d{8}$/.test(String(sesion.dni)) &&
-                    Number.isFinite(Number(sesion.timestamp)) &&
-                    (ahora - Number(sesion.timestamp)) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000);
-
-                if (sesionValida) {
-                    iniciarApp(String(sesion.dni), String(sesion.token));
-                } else {
-                    localStorage.removeItem("validador_sesion_segura");
+                if (!event.target || !event.target.result) {
+                    throw new Error("FileReader no devolvió contenido.");
                 }
 
-            } catch {
-                localStorage.removeItem("validador_sesion_segura");
-            }
-        });
+                const data = new Uint8Array(event.target.result);
 
-        inputDNI.addEventListener("input", () => {
-            inputDNI.value = inputDNI.value.replace(/\D/g, "").slice(0, 8);
-            loginErrorMsg.classList.add("hidden");
-            loginNetworkErrorMsg.classList.add("hidden");
-        });
-
-        function mostrarErrorLogin() {
-            loginErrorMsg.classList.remove("hidden");
-            inputDNI.classList.add("animate-bounce");
-
-            setTimeout(() => {
-                inputDNI.classList.remove("animate-bounce");
-            }, 500);
-        }
-
-        async function procesarLogin() {
-            const dni = inputDNI.value.replace(/\D/g, "");
-
-            loginErrorMsg.classList.add("hidden");
-            loginNetworkErrorMsg.classList.add("hidden");
-
-            if (!/^\d{8}$/.test(dni)) {
-                mostrarErrorLogin();
-                return;
-            }
-
-            btnLogin.innerHTML = "Validando DNI...";
-            btnLogin.disabled = true;
-
-            try {
-                const respuesta = await fetchConTimeout(`${URL_GAS}?action=login&dni=${encodeURIComponent(dni)}`, {
-                    method: "GET",
-                    cache: "no-store"
+                const workbook = XLSX.read(data, {
+                    type: "array",
+                    cellDates: true
                 });
 
-                if (!respuesta.ok) {
-                    throw new Error("Respuesta HTTP inválida: " + respuesta.status);
+                if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                    throw new Error("El archivo no contiene hojas.");
                 }
 
-                const datos = await respuesta.json();
+                const nombreHoja = workbook.SheetNames[0];
+                const hoja = workbook.Sheets[nombreHoja];
 
-                if (datos && datos.autorizado && datos.token) {
-                    localStorage.setItem("validador_sesion_segura", JSON.stringify({
-                        dni,
-                        token: datos.token,
-                        timestamp: Date.now()
-                    }));
+                if (!hoja) throw new Error("No se pudo leer la primera hoja.");
 
-                    iniciarApp(dni, datos.token);
+                const filas = XLSX.utils.sheet_to_json(hoja, {
+                    header: 1,
+                    defval: "",
+                    raw: true
+                });
 
-                } else {
-                    mostrarErrorLogin();
-                }
+                console.log("✅ Hoja leída:", nombreHoja);
+                console.log("✅ Total filas detectadas:", filas.length);
+                console.log("✅ Primeras filas:", filas.slice(0, 5));
+
+                mostrarEstadoArchivo(`✅ Archivo leído correctamente. Filas detectadas: ${filas.length}`, "success");
+
+                procesarValidacion(filas, hoja);
 
             } catch (error) {
-                console.error("Error en login:", error);
-                loginNetworkErrorMsg.classList.remove("hidden");
-
+                console.error("💥 Error procesando Excel:", error);
+                marcarDropZoneError();
+                alert("⚠️ Error procesando el Excel. Verifica que el archivo no esté dañado y que tenga la estructura correcta.");
+                mostrarEstadoArchivo("❌ Error procesando el Excel.", "error");
+                fileInput.value = "";
             } finally {
-                btnLogin.innerHTML = "Ingresar al Sistema";
-                btnLogin.disabled = false;
-            }
-        }
-
-        function iniciarApp(dniValidado, token) {
-            usuarioActualDNI = dniValidado;
-            tokenSesionActual = token;
-
-            const loginContainer = document.getElementById("login-container");
-            const appContainer = document.getElementById("app-container");
-
-            loginContainer.classList.add("opacity-0", "scale-95");
-
-            setTimeout(() => {
-                loginContainer.classList.add("hidden");
-                appContainer.classList.remove("hidden");
-                userDisplay.textContent = usuarioActualDNI;
-
-                actualizarDisplayUltimaCarga(usuarioActualDNI);
-
-                appContainer.classList.add("opacity-0", "translate-y-4");
-
-                setTimeout(() => {
-                    appContainer.classList.remove("opacity-0", "translate-y-4");
-                    mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
-                }, 50);
-
-            }, 250);
-        }
-
-        btnLogin.addEventListener("click", procesarLogin);
-
-        inputDNI.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-                e.preventDefault();
-                procesarLogin();
-            }
-        });
-
-        btnLogout.addEventListener("click", () => {
-            localStorage.removeItem("validador_sesion_segura");
-            location.reload();
-        });
-
-        /************************************************************
-         * CARGA DE ARCHIVO — ROBUSTO ANTIBLOQUEO DRAG & DROP
-         ************************************************************/
-        function resetEstadoDropZone() {
-            dragCounter = 0;
-
-            if (!dropZone) return;
-
-            dropZone.classList.remove(
-                "border-blue-500",
-                "border-emerald-500",
-                "border-red-500",
-                "bg-zinc-900",
-                "bg-blue-950/20",
-                "bg-emerald-950/20",
-                "bg-red-950/20"
-            );
-        }
-
-        function activarEstadoDropZone() {
-            if (!dropZone || archivoProcesandose) return;
-
-            dropZone.classList.add("border-blue-500", "bg-blue-950/20");
-            mostrarEstadoArchivo("📄 Suelta el archivo Excel aquí...", "info");
-        }
-
-        function marcarDropZoneExito() {
-            if (!dropZone) return;
-
-            resetEstadoDropZone();
-            dropZone.classList.add("border-emerald-500", "bg-emerald-950/20");
-        }
-
-        function marcarDropZoneError() {
-            if (!dropZone) return;
-
-            resetEstadoDropZone();
-            dropZone.classList.add("border-red-500", "bg-red-950/20");
-        }
-
-        function obtenerArchivoDesdeEventoDrop(e) {
-            if (!e || !e.dataTransfer) return null;
-
-            const dt = e.dataTransfer;
-
-            if (dt.files && dt.files.length > 0) {
-                return dt.files[0];
-            }
-
-            if (dt.items && dt.items.length > 0) {
-                for (const item of dt.items) {
-                    if (item.kind === "file") {
-                        const file = item.getAsFile();
-                        if (file) return file;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        function archivoExcelValido(file) {
-            if (!file) {
-                return {
-                    ok: false,
-                    msg: "No se recibió archivo."
-                };
-            }
-
-            const nombre = String(file.name || "").toLowerCase().trim();
-
-            const extensionValida =
-                nombre.endsWith(".xlsx") ||
-                nombre.endsWith(".xls");
-
-            if (!extensionValida) {
-                return {
-                    ok: false,
-                    msg: "Solo se permiten archivos Excel (.xlsx o .xls)."
-                };
-            }
-
-            if (!file.size || file.size <= 0) {
-                return {
-                    ok: false,
-                    msg: "El archivo está vacío o no se pudo leer correctamente."
-                };
-            }
-
-            return {
-                ok: true,
-                msg: "Archivo válido."
-            };
-        }
-
-        function manejarArchivoSeleccionado(file, origen = "manual") {
-            console.log(`📥 Archivo recibido por ${origen}:`, file);
-
-            if (archivoProcesandose) {
-                mostrarEstadoArchivo("⏳ Ya se está procesando un archivo. Espera un momento...", "warning");
-                return;
-            }
-
-            const validacion = archivoExcelValido(file);
-
-            if (!validacion.ok) {
-                marcarDropZoneError();
-                alert("⚠️ " + validacion.msg);
-                mostrarEstadoArchivo("⚠️ " + validacion.msg, "warning");
-
-                if (fileInput) fileInput.value = "";
-                return;
-            }
-
-            marcarDropZoneExito();
-            procesarArchivo(file);
-        }
-
-        ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
-            document.addEventListener(eventName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-            }, false);
-        });
-
-        dropZone.addEventListener("dragenter", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            dragCounter++;
-            activarEstadoDropZone();
-        });
-
-        dropZone.addEventListener("dragover", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            activarEstadoDropZone();
-        });
-
-        dropZone.addEventListener("dragleave", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            dragCounter = Math.max(0, dragCounter - 1);
-
-            if (dragCounter === 0 && !archivoProcesandose) {
-                resetEstadoDropZone();
-                mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
-            }
-        });
-
-        dropZone.addEventListener("drop", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            resetEstadoDropZone();
-
-            const file = obtenerArchivoDesdeEventoDrop(e);
-
-            if (!file) {
-                console.warn("⚠️ Drop detectado, pero el navegador no entregó el archivo.");
-
-                mostrarEstadoArchivo(
-                    "⚠️ El navegador bloqueó el arrastre. Haz clic en la zona y selecciona el Excel manualmente.",
-                    "warning"
-                );
-
-                return;
-            }
-
-            manejarArchivoSeleccionado(file, "arrastre");
-        });
-
-        fileInput.addEventListener("change", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            resetEstadoDropZone();
-
-            const files = e.currentTarget.files;
-
-            if (!files || files.length === 0) {
-                console.warn("⚠️ No se seleccionó archivo.");
-                mostrarEstadoArchivo("⚠️ No se seleccionó archivo.", "warning");
-                return;
-            }
-
-            manejarArchivoSeleccionado(files[0], "selector nativo");
-        });
-
-        window.addEventListener("drop", () => {
-            if (!archivoProcesandose) {
-                resetEstadoDropZone();
-            }
-        });
-
-        window.addEventListener("dragend", () => {
-            if (!archivoProcesandose) {
-                resetEstadoDropZone();
-                mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
-            }
-        });
-
-        window.addEventListener("blur", () => {
-            if (!archivoProcesandose) {
-                resetEstadoDropZone();
-            }
-        });
-
-        function procesarArchivo(file) {
-            console.log("🚀 INICIO procesarArchivo:", file);
-
-            if (archivoProcesandose) {
-                console.warn("⏳ Ya existe un archivo en procesamiento.");
-                return;
-            }
-
-            archivoProcesandose = true;
-            resetearResultados();
-
-            try {
-                if (!file) {
-                    throw new Error("Archivo indefinido.");
-                }
-
-                if (!validarXLSXDisponible()) {
-                    throw new Error("La librería XLSX no está cargada. Revisa conexión, firewall o CDN.");
-                }
-
-                const validacion = archivoExcelValido(file);
-
-                if (!validacion.ok) {
-                    throw new Error(validacion.msg);
-                }
-
-                mostrarEstadoArchivo(`📄 Procesando archivo: ${file.name}`, "info");
-
-                const reader = new FileReader();
-
-                reader.onload = (event) => {
-                    console.log("📥 FileReader terminó correctamente.");
-
-                    try {
-                        if (!event.target || !event.target.result) {
-                            throw new Error("FileReader no devolvió contenido.");
-                        }
-
-                        const data = new Uint8Array(event.target.result);
-
-                        console.log("📊 Leyendo Excel con XLSX...");
-
-                        const workbook = XLSX.read(data, {
-                            type: "array",
-                            cellDates: true
-                        });
-
-                        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-                            throw new Error("El archivo no contiene hojas.");
-                        }
-
-                        const nombreHoja = workbook.SheetNames[0];
-                        const hoja = workbook.Sheets[nombreHoja];
-
-                        if (!hoja) {
-                            throw new Error("No se pudo leer la primera hoja.");
-                        }
-
-                        const filas = XLSX.utils.sheet_to_json(hoja, {
-                            header: 1,
-                            defval: "",
-                            raw: true
-                        });
-
-                        console.log("✅ Hoja leída:", nombreHoja);
-                        console.log("✅ Total filas detectadas:", filas.length);
-                        console.log("✅ Primeras filas:", filas.slice(0, 5));
-
-                        mostrarEstadoArchivo(
-                            `✅ Archivo leído correctamente. Filas detectadas: ${filas.length}`,
-                            "success"
-                        );
-
-                        procesarValidacion(filas, hoja);
-
-                    } catch (error) {
-                        console.error("💥 Error procesando Excel:", error);
-
-                        marcarDropZoneError();
-
-                        alert(
-                            "⚠️ Error procesando el Excel. " +
-                            "Verifica que el archivo no esté dañado y que tenga la estructura correcta."
-                        );
-
-                        mostrarEstadoArchivo("❌ Error procesando el Excel.", "error");
-
-                        if (fileInput) fileInput.value = "";
-
-                    } finally {
-                        archivoProcesandose = false;
-                    }
-                };
-
-                reader.onerror = () => {
-                    console.error("🚨 Error FileReader:", reader.error);
-
-                    marcarDropZoneError();
-
-                    alert("⚠️ No se pudo leer el archivo seleccionado.");
-                    mostrarEstadoArchivo("❌ No se pudo leer el archivo.", "error");
-
-                    if (fileInput) fileInput.value = "";
-                    archivoProcesandose = false;
-                };
-
-                reader.readAsArrayBuffer(file);
-
-            } catch (error) {
-                console.error("❌ Error inicial procesando archivo:", error);
-
-                marcarDropZoneError();
-
-                alert("⚠️ " + (error.message || "No se pudo procesar el archivo."));
-                mostrarEstadoArchivo("❌ No se pudo procesar el archivo.", "error");
-
-                if (fileInput) fileInput.value = "";
                 archivoProcesandose = false;
             }
+        };
+
+        reader.onerror = () => {
+            console.error("🚨 Error FileReader:", reader.error);
+            marcarDropZoneError();
+            alert("⚠️ No se pudo leer el archivo seleccionado.");
+            mostrarEstadoArchivo("❌ No se pudo leer el archivo.", "error");
+            fileInput.value = "";
+            archivoProcesandose = false;
+        };
+
+        reader.readAsArrayBuffer(file);
+
+    } catch (error) {
+        console.error("❌ Error inicial:", error);
+        marcarDropZoneError();
+        alert("⚠️ " + (error.message || "No se pudo procesar el archivo."));
+        mostrarEstadoArchivo("❌ No se pudo procesar el archivo.", "error");
+        fileInput.value = "";
+        archivoProcesandose = false;
+    }
+}
+
+/************************************************************
+ * VALIDACIÓN
+ ************************************************************/
+function preservarFormatoVisual(hoja, filaIdx, colIdx) {
+    const celda = hoja[XLSX.utils.encode_cell({ r: filaIdx, c: colIdx })];
+    return celda && celda.w !== undefined ? celda.w : undefined;
+}
+
+function validarValorDeCatalogo(valorCrudo, idx) {
+    let valorLimpio = limpiarTexto(valorCrudo);
+
+    if (valorLimpio === "") {
+        return { valorFinal: null, error: "Celda vacía obligatoria." };
+    }
+
+    const homologacionesColumna = HOMOLOGACION_FORZADA[idx];
+
+    if (homologacionesColumna && homologacionesColumna[valorLimpio]) {
+        valorLimpio = homologacionesColumna[valorLimpio];
+    }
+
+    const catalogo = VALORES_PERMITIDOS[idx];
+
+    if (!Array.isArray(catalogo)) {
+        return { valorFinal: null, error: "Catálogo interno no configurado." };
+    }
+
+    if (catalogo.includes(valorLimpio)) {
+        return { valorFinal: valorLimpio, error: null };
+    }
+
+    const { mejorSimilitud, mejorCoincidencia } = encontrarMejorCoincidencia(valorLimpio, catalogo);
+
+    if (mejorSimilitud >= UMBRAL_FUZZY) {
+        return { valorFinal: mejorCoincidencia, error: null };
+    }
+
+    return {
+        valorFinal: null,
+        error: `Valor inválido: "${String(valorCrudo)}". Similitud más alta: ${Math.round(mejorSimilitud * 100)}%`
+    };
+}
+
+function procesarValidacion(filas, hoja) {
+    resetearResultados();
+
+    if (!Array.isArray(filas) || filas.length < 5) {
+        alert("⚠️ El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
+        fileInput.value = "";
+        mostrarEstadoArchivo("⚠️ Archivo sin suficientes filas.", "warning");
+        return;
+    }
+
+    const erroresBloqueantes = [];
+    const conteoVaciosPorColumna = {};
+    const validosParaSubir = [];
+    const conteoLineasData = {};
+    const conteoDespachoData = {};
+    let totalCeldasVacias = 0;
+
+    VALORES_PERMITIDOS[COL.LINEA].forEach(linea => conteoLineasData[linea] = 0);
+    VALORES_PERMITIDOS[COL.REGION].forEach(region => conteoDespachoData[region] = 0);
+
+    const encabezadosKeys = normalizarFila(filas[FILA_ENCABEZADOS_IDX]);
+    const indicesCatalogo = Object.keys(VALORES_PERMITIDOS).map(Number);
+
+    for (let i = FILA_INICIO_DATOS_IDX; i < filas.length; i++) {
+        const filaDatos = normalizarFila(filas[i]);
+
+        if (hoja) {
+            const visualFactura = preservarFormatoVisual(hoja, i, COL.FACTURA);
+            const visualCita = preservarFormatoVisual(hoja, i, COL.VISUAL_G);
+            if (visualFactura !== undefined) filaDatos[COL.FACTURA] = visualFactura;
+            if (visualCita !== undefined) filaDatos[COL.VISUAL_G] = visualCita;
         }
 
-        /************************************************************
-         * VALIDACIÓN AUXILIAR
-         ************************************************************/
-        function preservarFormatoVisual(hoja, filaIdx, colIdx) {
-            const celda = hoja[XLSX.utils.encode_cell({ r: filaIdx, c: colIdx })];
-            return celda && celda.w !== undefined ? celda.w : undefined;
-        }
+        const filaVacia = filaDatos.every(cell => String(cell ?? "").trim() === "");
+        if (filaVacia) continue;
 
-        function validarValorDeCatalogo(valorCrudo, idx) {
-            let valorLimpio = limpiarTexto(valorCrudo);
+        const valEntrega = limpiarTexto(filaDatos[COL.ENTREGA]);
+        const valGuia = limpiarTexto(filaDatos[COL.GUIA]);
 
-            if (valorLimpio === "") {
-                return {
-                    valorFinal: null,
-                    error: "Celda vacía obligatoria."
-                };
-            }
+        if (valEntrega === "" && valGuia === "") continue;
 
-            const homologacionesColumna = HOMOLOGACION_FORZADA[idx];
+        const numFilaVisual = i + 1;
+        let erroresEnEstaFila = false;
 
-            if (homologacionesColumna && homologacionesColumna[valorLimpio]) {
-                valorLimpio = homologacionesColumna[valorLimpio];
-            }
+        const fechaNormalizada = normalizarFecha(filaDatos[COL.FECHA]);
+        filaDatos[COL.FECHA] = fechaNormalizada;
 
-            const catalogo = VALORES_PERMITIDOS[idx];
-
-            if (!Array.isArray(catalogo)) {
-                return {
-                    valorFinal: null,
-                    error: "Catálogo interno no configurado."
-                };
-            }
-
-            if (catalogo.includes(valorLimpio)) {
-                return {
-                    valorFinal: valorLimpio,
-                    error: null
-                };
-            }
-
-            const { mejorSimilitud, mejorCoincidencia } = encontrarMejorCoincidencia(valorLimpio, catalogo);
-
-            if (mejorSimilitud >= UMBRAL_FUZZY) {
-                return {
-                    valorFinal: mejorCoincidencia,
-                    error: null
-                };
-            }
-
-            const porcentajeFallo = Math.round(mejorSimilitud * 100);
-
-            return {
-                valorFinal: null,
-                error: `Valor inválido: "${String(valorCrudo)}". Similitud más alta: ${porcentajeFallo}%`
-            };
-        }
-
-        /************************************************************
-         * VALIDACIÓN PRINCIPAL
-         ************************************************************/
-        function procesarValidacion(filas, hoja) {
-            resetearResultados();
-
-            if (!Array.isArray(filas) || filas.length < 5) {
-                alert("⚠️ El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
-                if (fileInput) fileInput.value = "";
-                mostrarEstadoArchivo("⚠️ Archivo sin suficientes filas.", "warning");
-                return;
-            }
-
-            const erroresBloqueantes = [];
-            const conteoVaciosPorColumna = {};
-            const validosParaSubir = [];
-            const conteoLineasData = {};
-            const conteoDespachoData = {};
-            let totalCeldasVacias = 0;
-
-            VALORES_PERMITIDOS[COL.LINEA].forEach(linea => {
-                conteoLineasData[linea] = 0;
+        if (!fechaNormalizada) {
+            erroresBloqueantes.push({
+                fila: numFilaVisual,
+                col: columnaExcel(COL.FECHA),
+                msg: "Debe ser una fecha válida."
             });
+            erroresEnEstaFila = true;
+        }
 
-            VALORES_PERMITIDOS[COL.REGION].forEach(region => {
-                conteoDespachoData[region] = 0;
+        if (valEntrega === "") {
+            erroresBloqueantes.push({
+                fila: numFilaVisual,
+                col: columnaExcel(COL.ENTREGA),
+                msg: "Celda vacía obligatoria (Entrega)."
             });
+            erroresEnEstaFila = true;
+        }
 
-            const encabezadosKeys = normalizarFila(filas[FILA_ENCABEZADOS_IDX]);
-            const indicesCatalogo = Object.keys(VALORES_PERMITIDOS).map(Number);
+        for (const idx of indicesCatalogo) {
+            const { valorFinal, error } = validarValorDeCatalogo(filaDatos[idx], idx);
 
-            for (let i = FILA_INICIO_DATOS_IDX; i < filas.length; i++) {
-                const filaDatos = normalizarFila(filas[i]);
-
-                if (hoja) {
-                    const visualD = preservarFormatoVisual(hoja, i, COL.DESTINO_VISUAL);
-                    const visualG = preservarFormatoVisual(hoja, i, COL.VISUAL_G);
-
-                    if (visualD !== undefined) filaDatos[COL.DESTINO_VISUAL] = visualD;
-                    if (visualG !== undefined) filaDatos[COL.VISUAL_G] = visualG;
-                }
-
-                const filaVacia = filaDatos.every(cell => String(cell ?? "").trim() === "");
-                if (filaVacia) continue;
-
-                const valEntrega = limpiarTexto(filaDatos[COL.ENTREGA]);
-                const valCanal = limpiarTexto(filaDatos[COL.CANAL]);
-
-                if (valEntrega === "" && valCanal === "") continue;
-
-                const numFilaVisual = i + 1;
-                let erroresEnEstaFila = false;
-
-                const fechaNormalizada = normalizarFecha(filaDatos[COL.FECHA]);
-                filaDatos[COL.FECHA] = fechaNormalizada;
-
-                if (!fechaNormalizada) {
-                    erroresBloqueantes.push({
-                        fila: numFilaVisual,
-                        col: columnaExcel(COL.FECHA),
-                        msg: "Debe ser una fecha válida."
-                    });
-
-                    erroresEnEstaFila = true;
-                }
-
-                if (valEntrega === "") {
-                    erroresBloqueantes.push({
-                        fila: numFilaVisual,
-                        col: columnaExcel(COL.ENTREGA),
-                        msg: "Celda vacía obligatoria (Entrega)."
-                    });
-
-                    erroresEnEstaFila = true;
-                }
-
-                for (const idx of indicesCatalogo) {
-                    const { valorFinal, error } = validarValorDeCatalogo(filaDatos[idx], idx);
-
-                    if (error) {
-                        erroresBloqueantes.push({
-                            fila: numFilaVisual,
-                            col: columnaExcel(idx),
-                            msg: error
-                        });
-
-                        erroresEnEstaFila = true;
-
-                    } else {
-                        filaDatos[idx] = valorFinal;
-                    }
-                }
-
-                if (erroresEnEstaFila) continue;
-
-                COLS_ADVERTENCIA.forEach(idx => {
-                    if (String(filaDatos[idx] ?? "").trim() === "") {
-                        const nombreEncabezado = obtenerNombreColumna(encabezadosKeys, idx);
-                        conteoVaciosPorColumna[nombreEncabezado] = (conteoVaciosPorColumna[nombreEncabezado] || 0) + 1;
-                        totalCeldasVacias++;
-                    }
+            if (error) {
+                erroresBloqueantes.push({
+                    fila: numFilaVisual,
+                    col: columnaExcel(idx),
+                    msg: error
                 });
-
-                const objetoLimpio = {};
-                let cadenaParaHuella = "";
-
-                for (let c = 0; c < TOTAL_COLUMNAS_ESPERADAS; c++) {
-                    const nombreKey = encabezadosKeys[c]
-                        ? String(encabezadosKeys[c]).trim()
-                        : `Columna_${columnaExcel(c)}`;
-
-                    const valCelda = filaDatos[c] !== undefined && filaDatos[c] !== null
-                        ? String(filaDatos[c]).trim()
-                        : "";
-
-                    objetoLimpio[nombreKey] = valCelda;
-                    cadenaParaHuella += `${valCelda}|`;
-                }
-
-                objetoLimpio["USER"] = usuarioActualDNI;
-                objetoLimpio["Fecha De Registro"] = new Date().toLocaleString("es-PE", { hour12: false });
-                objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella);
-
-                validosParaSubir.push(objetoLimpio);
-
-                const linea = limpiarTexto(filaDatos[COL.LINEA]);
-
-                if (conteoLineasData[linea] !== undefined) {
-                    conteoLineasData[linea]++;
-                }
-
-                const tipoDespacho = limpiarTexto(filaDatos[COL.REGION]);
-
-                if (conteoDespachoData[tipoDespacho] !== undefined) {
-                    conteoDespachoData[tipoDespacho]++;
-                }
-            }
-
-            resultContainer.classList.remove("hidden");
-
-            if (erroresBloqueantes.length > 0) {
-                renderErrores(erroresBloqueantes);
-
-                if (fileInput) fileInput.value = "";
-
-                mostrarEstadoArchivo(
-                    `🚫 Se detectaron ${erroresBloqueantes.length} errores críticos.`,
-                    "error"
-                );
-
-                return;
-            }
-
-            renderAdvertencias(conteoVaciosPorColumna);
-            renderResumenExitoso(validosParaSubir, conteoDespachoData, conteoLineasData, totalCeldasVacias);
-
-            datosListosParaEnviar = validosParaSubir;
-
-            if (validosParaSubir.length === 0) {
-                mostrarEstadoArchivo("⚠️ No se encontraron filas válidas para subir.", "warning");
+                erroresEnEstaFila = true;
             } else {
-                mostrarEstadoArchivo(`✅ Validación superada. Filas listas: ${validosParaSubir.length}`, "success");
+                filaDatos[idx] = valorFinal;
             }
         }
 
-        /************************************************************
-         * RENDER
-         ************************************************************/
-        function renderErrores(erroresBloqueantes) {
-            errorSection.classList.remove("hidden");
+        if (erroresEnEstaFila) continue;
 
-            errorTableBody.innerHTML = erroresBloqueantes.map(e => `
-                <tr class="border-b border-red-500/10 hover:bg-red-950/80 transition-colors">
-                    <td class="p-3 border-r border-red-500/10 font-black text-center text-red-400">${escapeHTML(e.fila)}</td>
-                    <td class="p-3 border-r border-red-500/10 font-bold text-center text-white">${escapeHTML(e.col)}</td>
-                    <td class="p-3 text-red-200 font-medium">${escapeHTML(e.msg)}</td>
-                </tr>
-            `).join("");
-        }
-
-        function renderAdvertencias(conteoVaciosPorColumna) {
-            const entries = Object.entries(conteoVaciosPorColumna);
-
-            if (entries.length === 0) return;
-
-            warningSection.classList.remove("hidden");
-
-            warningList.innerHTML = entries.map(([colReal, cantidad]) => `
-                <li>
-                    Columna <strong class="text-amber-400">${escapeHTML(colReal)}</strong>
-                    tiene
-                    <span class="bg-amber-500/20 text-amber-200 font-bold px-2 py-0.5 rounded border border-amber-500/30 text-xs mx-1">${escapeHTML(cantidad)}</span>
-                    celdas vacías.
-                </li>
-            `).join("");
-        }
-
-        function calcularColorScore(porcentaje) {
-            if (porcentaje >= 99.5) {
-                return ["text-emerald-500", "drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]"];
-            }
-
-            if (porcentaje >= 80) {
-                return ["text-amber-500", "drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]"];
-            }
-
-            return ["text-red-500", "drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]"];
-        }
-
-        function renderResumenExitoso(validosParaSubir, conteoDespachoData, conteoLineasData, totalCeldasVacias) {
-            successSection.classList.remove("hidden");
-
-            totalFilas.textContent = String(validosParaSubir.length);
-
-            const totalCeldasEsperadas = validosParaSubir.length * COLS_ADVERTENCIA.length;
-
-            let porcentaje = totalCeldasEsperadas > 0
-                ? (1 - (totalCeldasVacias / totalCeldasEsperadas)) * 100
-                : 100;
-
-            porcentaje = Math.max(0, Math.min(100, porcentaje));
-
-            const displayPorcentaje = porcentaje === 100 ? "100" : porcentaje.toFixed(1);
-            scoreText.textContent = `${displayPorcentaje}%`;
-
-            scoreCircle.className = "transition-all duration-1000 ease-out";
-            scoreCircle.classList.add(...calcularColorScore(porcentaje));
-
-            setTimeout(() => {
-                scoreCircle.setAttribute("stroke-dasharray", `${porcentaje}, 100`);
-            }, 150);
-
-            const despachoHtml = Object.entries(conteoDespachoData)
-                .filter(([, cantidad]) => cantidad > 0)
-                .map(([despacho, cantidad]) => `
-                    <div class="bg-blue-900/30 border border-blue-500/40 px-4 py-2 rounded-xl flex items-center gap-3">
-                        <span class="font-bold text-white">${escapeHTML(despacho)}</span>
-                        <span class="bg-blue-500 text-white py-0.5 px-3 rounded-full text-xs font-black shadow-[0_0_10px_rgba(59,130,246,0.5)]">
-                            ${escapeHTML(cantidad)}
-                        </span>
-                    </div>
-                `).join("");
-
-            conteoDespacho.innerHTML = despachoHtml || `<p class="text-zinc-500 italic text-sm">Sin datos</p>`;
-
-            const lineasHtml = Object.entries(conteoLineasData)
-                .filter(([, cantidad]) => cantidad > 0)
-                .map(([linea, cantidad]) => `
-                    <div class="bg-black/80 border border-zinc-700 px-3 py-2 rounded-lg flex justify-between items-center hover:border-indigo-400/60 transition-colors">
-                        <span class="font-bold text-white truncate mr-2" title="${escapeHTML(linea)}">${escapeHTML(linea)}</span>
-                        <span class="bg-indigo-500/20 text-indigo-300 py-1 px-2 rounded-md font-black border border-indigo-500/30">
-                            ${escapeHTML(cantidad)}
-                        </span>
-                    </div>
-                `).join("");
-
-            conteoLineas.innerHTML = lineasHtml || `<p class="text-zinc-500 italic col-span-2">Sin líneas validadas.</p>`;
-        }
-
-        /************************************************************
-         * ENVÍO AL HISTÓRICO
-         ************************************************************/
-        btnEnviar.addEventListener("click", async () => {
-            if (!datosListosParaEnviar || datosListosParaEnviar.length === 0) {
-                alert("⚠️ No hay datos estructurados listos para ser enviados.");
-                return;
-            }
-
-            if (!tokenSesionActual) {
-                alert("🔒 Sesión inválida. Vuelve a iniciar sesión.");
-                localStorage.removeItem("validador_sesion_segura");
-                location.reload();
-                return;
-            }
-
-            const textoOriginal = btnEnviar.innerHTML;
-
-            btnEnviar.innerHTML = `<span>⏳</span> Conectando con el Histórico Maestro...`;
-            btnEnviar.disabled = true;
-
-            try {
-                const respuesta = await fetchConTimeout(URL_GAS, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "text/plain;charset=utf-8"
-                    },
-                    body: JSON.stringify({
-                        token: tokenSesionActual,
-                        rows: datosListosParaEnviar
-                    })
-                });
-
-                if (!respuesta.ok) {
-                    throw new Error(`HTTP ${respuesta.status}`);
-                }
-
-                const resultado = await respuesta.json();
-
-                if (resultado.status === "success") {
-                    btnEnviar.innerHTML = `<span>✨</span> ¡Guardado Exitosamente!`;
-
-                    btnEnviar.classList.remove("bg-blue-600", "hover:bg-blue-500", "border-blue-400/50");
-                    btnEnviar.classList.add("bg-emerald-600", "border-emerald-400/50");
-
-                    const ahora = new Date().toLocaleString("es-PE", { hour12: false });
-                    localStorage.setItem("fecha_ultima_carga_" + usuarioActualDNI, ahora);
-
-                    setTimeout(() => {
-                        alert(`¡Proceso completado con éxito! Se cargaron ${resultado.insertados || 0} nuevos registros en la hoja BD_OLT.`);
-                        location.reload();
-                    }, 1000);
-
-                } else if (resultado.status === "forbidden") {
-                    alert(`🔒 Tu sesión ya no es válida: ${resultado.message || "Vuelve a iniciar sesión."}`);
-                    localStorage.removeItem("validador_sesion_segura");
-                    location.reload();
-
-                } else {
-                    alert(`❌ Denegado por el servidor: ${resultado.message || "Respuesta no válida del backend."}`);
-                    btnEnviar.innerHTML = textoOriginal;
-                    btnEnviar.disabled = false;
-                }
-
-            } catch (error) {
-                console.error("Error de envío:", error);
-                alert("⚠️ Error de red: no se obtuvo respuesta del servidor de Google. Revisa tu conexión a internet.");
-                btnEnviar.innerHTML = textoOriginal;
-                btnEnviar.disabled = false;
+        COLS_ADVERTENCIA.forEach(idx => {
+            if (String(filaDatos[idx] ?? "").trim() === "") {
+                const nombreEncabezado = obtenerNombreColumna(encabezadosKeys, idx);
+                conteoVaciosPorColumna[nombreEncabezado] = (conteoVaciosPorColumna[nombreEncabezado] || 0) + 1;
+                totalCeldasVacias++;
             }
         });
-    </script>
+
+        const objetoLimpio = {};
+        let cadenaParaHuella = "";
+
+        for (let c = 0; c < TOTAL_COLUMNAS_ESPERADAS; c++) {
+            const nombreKey = encabezadosKeys[c]
+                ? String(encabezadosKeys[c]).trim()
+                : `Columna_${columnaExcel(c)}`;
+
+            const valCelda = filaDatos[c] !== undefined && filaDatos[c] !== null
+                ? String(filaDatos[c]).trim()
+                : "";
+
+            objetoLimpio[nombreKey] = valCelda;
+            cadenaParaHuella += `${valCelda}|`;
+        }
+
+        objetoLimpio["USER"] = usuarioActualDNI;
+        objetoLimpio["Fecha De Registro"] = new Date().toLocaleString("es-PE", { hour12: false });
+        objetoLimpio["Huella_Digital"] = generarHuellaDigital(cadenaParaHuella);
+
+        validosParaSubir.push(objetoLimpio);
+
+        const linea = limpiarTexto(filaDatos[COL.LINEA]);
+        if (conteoLineasData[linea] !== undefined) conteoLineasData[linea]++;
+
+        const despacho = limpiarTexto(filaDatos[COL.REGION]);
+        if (conteoDespachoData[despacho] !== undefined) conteoDespachoData[despacho]++;
+    }
+
+    resultContainer.classList.remove("hidden");
+
+    if (erroresBloqueantes.length > 0) {
+        renderErrores(erroresBloqueantes);
+        fileInput.value = "";
+        mostrarEstadoArchivo(`🚫 Se detectaron ${erroresBloqueantes.length} errores críticos.`, "error");
+        return;
+    }
+
+    renderAdvertencias(conteoVaciosPorColumna);
+    renderResumenExitoso(validosParaSubir, conteoDespachoData, conteoLineasData, totalCeldasVacias);
+
+    datosListosParaEnviar = validosParaSubir;
+
+    if (validosParaSubir.length === 0) {
+        mostrarEstadoArchivo("⚠️ No se encontraron filas válidas para subir.", "warning");
+    } else {
+        mostrarEstadoArchivo(`✅ Validación superada. Filas listas: ${validosParaSubir.length}`, "success");
+    }
+}
+
+/************************************************************
+ * RENDER
+ ************************************************************/
+function renderErrores(erroresBloqueantes) {
+    errorSection.classList.remove("hidden");
+
+    errorTableBody.innerHTML = erroresBloqueantes.map(e => `
+        <tr class="border-b border-red-500/10 hover:bg-red-950/80 transition-colors">
+            <td class="p-3 border-r border-red-500/10 font-black text-center text-red-400">${escapeHTML(e.fila)}</td>
+            <td class="p-3 border-r border-red-500/10 font-bold text-center text-white">${escapeHTML(e.col)}</td>
+            <td class="p-3 text-red-200 font-medium">${escapeHTML(e.msg)}</td>
+        </tr>
+    `).join("");
+}
+
+function renderAdvertencias(conteoVaciosPorColumna) {
+    const entries = Object.entries(conteoVaciosPorColumna);
+    if (entries.length === 0) return;
+
+    warningSection.classList.remove("hidden");
+
+    warningList.innerHTML = entries.map(([colReal, cantidad]) => `
+        <li>
+            Columna <strong class="text-amber-400">${escapeHTML(colReal)}</strong>
+            tiene
+            <span class="bg-amber-500/20 text-amber-200 font-bold px-2 py-0.5 rounded border border-amber-500/30 text-xs mx-1">${escapeHTML(cantidad)}</span>
+            celdas vacías.
+        </li>
+    `).join("");
+}
+
+function calcularColorScore(porcentaje) {
+    if (porcentaje >= 99.5) return ["text-emerald-500", "drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]"];
+    if (porcentaje >= 80) return ["text-amber-500", "drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]"];
+    return ["text-red-500", "drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]"];
+}
+
+function renderResumenExitoso(validosParaSubir, conteoDespachoData, conteoLineasData, totalCeldasVacias) {
+    successSection.classList.remove("hidden");
+
+    totalFilas.textContent = String(validosParaSubir.length);
+
+    const totalCeldasEsperadas = validosParaSubir.length * COLS_ADVERTENCIA.length;
+
+    let porcentaje = totalCeldasEsperadas > 0
+        ? (1 - totalCeldasVacias / totalCeldasEsperadas) * 100
+        : 100;
+
+    porcentaje = Math.max(0, Math.min(100, porcentaje));
+
+    scoreText.textContent = `${porcentaje === 100 ? "100" : porcentaje.toFixed(1)}%`;
+
+    scoreCircle.className = "transition-all duration-1000 ease-out";
+    scoreCircle.classList.add(...calcularColorScore(porcentaje));
+
+    setTimeout(() => {
+        scoreCircle.setAttribute("stroke-dasharray", `${porcentaje}, 100`);
+    }, 150);
+
+    conteoDespacho.innerHTML = Object.entries(conteoDespachoData)
+        .filter(([, cantidad]) => cantidad > 0)
+        .map(([despacho, cantidad]) => `
+            <div class="bg-blue-900/30 border border-blue-500/40 px-4 py-2 rounded-xl flex items-center gap-3">
+                <span class="font-bold text-white">${escapeHTML(despacho)}</span>
+                <span class="bg-blue-500 text-white py-0.5 px-3 rounded-full text-xs font-black shadow-[0_0_10px_rgba(59,130,246,0.5)]">
+                    ${escapeHTML(cantidad)}
+                </span>
+            </div>
+        `).join("") || `<p class="text-zinc-500 italic text-sm">Sin datos</p>`;
+
+    conteoLineas.innerHTML = Object.entries(conteoLineasData)
+        .filter(([, cantidad]) => cantidad > 0)
+        .map(([linea, cantidad]) => `
+            <div class="bg-black/80 border border-zinc-700 px-3 py-2 rounded-lg flex justify-between items-center hover:border-indigo-400/60 transition-colors">
+                <span class="font-bold text-white truncate mr-2" title="${escapeHTML(linea)}">${escapeHTML(linea)}</span>
+                <span class="bg-indigo-500/20 text-indigo-300 py-1 px-2 rounded-md font-black border border-indigo-500/30">
+                    ${escapeHTML(cantidad)}
+                </span>
+            </div>
+        `).join("") || `<p class="text-zinc-500 italic col-span-2">Sin líneas validadas.</p>`;
+}
+
+/************************************************************
+ * ENVÍO
+ ************************************************************/
+btnEnviar.addEventListener("click", async () => {
+    if (!datosListosParaEnviar || datosListosParaEnviar.length === 0) {
+        alert("⚠️ No hay datos estructurados listos para ser enviados.");
+        return;
+    }
+
+    if (!tokenSesionActual) {
+        alert("🔒 Sesión inválida. Vuelve a iniciar sesión.");
+        localStorage.removeItem("validador_sesion_segura");
+        location.reload();
+        return;
+    }
+
+    const textoOriginal = btnEnviar.innerHTML;
+
+    btnEnviar.innerHTML = `<span>⏳</span> Conectando con el Histórico Maestro...`;
+    btnEnviar.disabled = true;
+
+    try {
+        const respuesta = await fetchConTimeout(URL_GAS, {
+            method: "POST",
+            headers: {
+                "Content-Type": "text/plain;charset=utf-8"
+            },
+            body: JSON.stringify({
+                token: tokenSesionActual,
+                rows: datosListosParaEnviar
+            })
+        });
+
+        if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+
+        const resultado = await respuesta.json();
+
+        if (resultado.status === "success") {
+            btnEnviar.innerHTML = `<span>✨</span> ¡Guardado Exitosamente!`;
+            btnEnviar.classList.remove("bg-blue-600", "hover:bg-blue-500", "border-blue-400/50");
+            btnEnviar.classList.add("bg-emerald-600", "border-emerald-400/50");
+
+            const ahora = new Date().toLocaleString("es-PE", { hour12: false });
+            localStorage.setItem("fecha_ultima_carga_" + usuarioActualDNI, ahora);
+
+            setTimeout(() => {
+                alert(`¡Proceso completado con éxito! Se cargaron ${resultado.insertados || 0} nuevos registros en la hoja BD_OLT.`);
+                location.reload();
+            }, 1000);
+
+        } else if (resultado.status === "forbidden") {
+            alert(`🔒 Tu sesión ya no es válida: ${resultado.message || "Vuelve a iniciar sesión."}`);
+            localStorage.removeItem("validador_sesion_segura");
+            location.reload();
+
+        } else {
+            alert(`❌ Denegado por el servidor: ${resultado.message || "Respuesta no válida del backend."}`);
+            btnEnviar.innerHTML = textoOriginal;
+            btnEnviar.disabled = false;
+        }
+
+    } catch (error) {
+        console.error("Error envío:", error);
+        alert("⚠️ Error de red: no se obtuvo respuesta del servidor de Google. Revisa tu conexión a internet.");
+        btnEnviar.innerHTML = textoOriginal;
+        btnEnviar.disabled = false;
+    }
+});
+</script>
+
 </body>
 </html>
