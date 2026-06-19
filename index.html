@@ -119,7 +119,7 @@
             <div id="warning-section" class="hidden bg-amber-950/40 p-6 rounded-xl border border-amber-500/30 shadow-lg">
                 <div class="flex items-center gap-3 mb-3">
                     <span class="text-2xl">⚠️</span>
-                    <h3 class="text-amber-400 font-bold text-lg">Observaciones (Campos Vacíos)</h3>
+                    <h3 class="text-amber-400 font-bold text-lg">Observaciones, Campos Vacíos</h3>
                 </div>
                 <p class="text-amber-100 mb-3 text-sm font-medium">
                     El archivo es válido, pero notamos que dejaste celdas vacías en columnas que deberían tener datos:
@@ -562,7 +562,7 @@
 
             const nombre = (file.name || "").toLowerCase();
             if (!nombre.endsWith(".xlsx") && !nombre.endsWith(".xls")) {
-                alert("⚠️ Solo se permiten archivos Excel (.xlsx o .xls).");
+                alert("⚠️ Solo se permiten archivos Excel .xlsx o .xls.");
                 fileInput.value = "";
                 return;
             }
@@ -672,7 +672,7 @@
                     erroresBloqueantes.push({
                         fila: numFilaVisual,
                         col: "C",
-                        msg: "Celda vacía obligatoria (Entrega)."
+                        msg: "Celda vacía obligatoria, Entrega."
                     });
                     erroresEnEstaFila = true;
                 }
@@ -779,6 +779,9 @@
             renderResumenExitoso(validosParaSubir, conteoDespachoData, conteoLineasData, totalCeldasVacias);
 
             datosListosParaEnviar = validosParaSubir;
+
+            console.log("Datos listos para enviar:", datosListosParaEnviar);
+            console.log("Total datos listos:", datosListosParaEnviar.length);
         }
 
         /************************************************************
@@ -872,7 +875,7 @@
         }
 
         /************************************************************
-         * ENVÍO AL HISTÓRICO
+         * ENVÍO AL HISTÓRICO, CORREGIDO
          ************************************************************/
         btnEnviar.addEventListener("click", async () => {
             if (!datosListosParaEnviar || datosListosParaEnviar.length === 0) {
@@ -893,15 +896,22 @@
             btnEnviar.disabled = true;
 
             try {
+                const payload = {
+                    action: "guardar_consolidado",
+                    token: tokenSesionActual,
+                    rows: datosListosParaEnviar
+                };
+
+                console.log("Payload enviado al backend:", payload);
+                console.log("Total filas enviadas:", datosListosParaEnviar.length);
+                console.log("Primera fila enviada:", datosListosParaEnviar[0]);
+
                 const respuesta = await fetch(URL_GAS, {
                     method: "POST",
                     headers: {
                         "Content-Type": "text/plain;charset=utf-8"
                     },
-                    body: JSON.stringify({
-                        token: tokenSesionActual,
-                        rows: datosListosParaEnviar
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 if (!respuesta.ok) {
@@ -909,6 +919,8 @@
                 }
 
                 const resultado = await respuesta.json();
+
+                console.log("Respuesta del backend:", resultado);
 
                 if (resultado.status === "success") {
                     btnEnviar.innerHTML = `<span>✨</span> ¡Guardado Exitosamente!`;
@@ -919,8 +931,19 @@
                     const ahora = new Date().toLocaleString("es-PE", { hour12: false });
                     localStorage.setItem("fecha_ultima_carga_" + usuarioActualDNI, ahora);
 
+                    const insertados = resultado.insertados || 0;
+                    const duplicados = resultado.duplicados || 0;
+                    const recibidos = resultado.recibidos || datosListosParaEnviar.length;
+                    const invalidos = resultado.invalidos || 0;
+
                     setTimeout(() => {
-                        alert(`¡Proceso completado con éxito! Se cargaron ${resultado.insertados || 0} nuevos registros en la hoja BD_OLT.`);
+                        alert(
+                            `¡Proceso completado!\n\n` +
+                            `Filas enviadas: ${recibidos}\n` +
+                            `Nuevos registros insertados: ${insertados}\n` +
+                            `Duplicados omitidos: ${duplicados}\n` +
+                            `Filas inválidas omitidas: ${invalidos}`
+                        );
                         location.reload();
                     }, 1000);
 
