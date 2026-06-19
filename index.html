@@ -13,8 +13,22 @@
         ::-webkit-scrollbar-track { background: #000000; }
         ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
-        .svg-circle { transform: rotate(-90deg); transform-origin: 50% 50%; }
-        button:disabled { opacity: 0.65; cursor: not-allowed; }
+
+        .svg-circle {
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        button:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        /* Evita selección accidental en dropzone */
+        #drop-zone {
+            user-select: none;
+            -webkit-user-select: none;
+        }
     </style>
 </head>
 
@@ -79,22 +93,36 @@
             </div>
         </div>
 
-        <!-- DROPZONE -->
-        <div id="drop-zone" class="border-2 border-dashed border-zinc-600 bg-black/60 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-zinc-900/80 transition-all duration-300 group">
-            <div class="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-lg opacity-80 group-hover:opacity-100">📄</div>
-            <p class="text-white font-medium text-lg">
-                Arrastra tu Excel aquí o
-                <span class="text-blue-400 font-bold group-hover:text-blue-300 transition-colors">haz clic para subir</span>
-            </p>
-            <p id="file-status" class="text-zinc-500 text-sm mt-3 hidden"></p>
-        </div>
+        <!-- DROPZONE ROBUSTO -->
+        <div
+            id="drop-zone"
+            class="relative border-2 border-dashed border-zinc-600 bg-black/60 rounded-xl p-10 text-center cursor-pointer hover:border-blue-500 hover:bg-zinc-900/80 transition-all duration-300 group overflow-hidden"
+        >
+            <!-- Input real encima del dropzone.
+                 Es la vía más confiable cuando el navegador bloquea drag & drop. -->
+            <input
+                id="file-input"
+                type="file"
+                accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                title=""
+            />
 
-        <input
-            id="file-input"
-            type="file"
-            accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-            style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"
-        />
+            <div class="relative z-10 pointer-events-none">
+                <div class="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-lg opacity-80 group-hover:opacity-100">
+                    📄
+                </div>
+
+                <p class="text-white font-medium text-lg">
+                    Arrastra tu Excel aquí o
+                    <span class="text-blue-400 font-bold group-hover:text-blue-300 transition-colors">
+                        haz clic para subir
+                    </span>
+                </p>
+
+                <p id="file-status" class="text-zinc-500 text-sm mt-3 hidden"></p>
+            </div>
+        </div>
 
         <!-- RESULTADOS -->
         <div id="result-container" class="mt-8 hidden space-y-6">
@@ -220,6 +248,7 @@
 
         const COL = {
             FECHA: 0,
+            AREA_OLT: 1,
             ENTREGA: 2,
             DESTINO_VISUAL: 3,
             CANAL: 4,
@@ -227,7 +256,8 @@
             LINEA: 11,
             REGION: 15,
             TIPO_DESPACHO_TEXTO: 15,
-            TEMPERATURA: 16
+            TIPO_TRANSPORTE: 16,
+            TEMPERATURA: 17
         };
 
         const VALORES_PERMITIDOS = {
@@ -239,9 +269,18 @@
         };
 
         const HOMOLOGACION_FORZADA = {
+            1: {
+                "AREAS CLAVES": "ÁREAS CLAVES"
+            },
             11: {
                 "ADIUM": "TECNOFARMA",
                 "ELEA PERU": "ELEA"
+            },
+            16: {
+                "RECOGE CLIENTE": "RECOJO CLIENTE",
+                "RECOGE EL CLIENTE": "RECOJO CLIENTE",
+                "RECOJO DEL CLIENTE": "RECOJO CLIENTE",
+                "RECOJO CLIENTES": "RECOJO CLIENTE"
             }
         };
 
@@ -251,7 +290,7 @@
         let tokenSesionActual = "";
         let datosListosParaEnviar = [];
         let archivoProcesandose = false;
-        let dragDepth = 0;
+        let dragCounter = 0;
 
         /************************************************************
          * DOM
@@ -302,11 +341,13 @@
         function columnaExcel(index) {
             let col = "";
             let n = index + 1;
+
             while (n > 0) {
                 const rem = (n - 1) % 26;
                 col = String.fromCharCode(65 + rem) + col;
                 n = Math.floor((n - 1) / 26);
             }
+
             return col;
         }
 
@@ -341,20 +382,27 @@
 
         function fetchConTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
             const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), timeoutMs);
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
             return fetch(url, {
                 ...options,
                 signal: controller.signal
-            }).finally(() => clearTimeout(id));
+            }).finally(() => clearTimeout(timeoutId));
         }
 
         function validarXLSXDisponible() {
             return typeof XLSX !== "undefined" &&
                    XLSX &&
-                   XLSX.read &&
+                   typeof XLSX.read === "function" &&
                    XLSX.utils &&
-                   XLSX.utils.sheet_to_json;
+                   typeof XLSX.utils.sheet_to_json === "function";
+        }
+
+        function normalizarFila(row, totalCols = TOTAL_COLUMNAS_ESPERADAS) {
+            return Array.from({ length: totalCols }, (_, c) => {
+                if (!row || row[c] === undefined || row[c] === null) return "";
+                return row[c];
+            });
         }
 
         /************************************************************
@@ -369,7 +417,9 @@
 
         function parseRealDateFromString(value) {
             const txt = String(value).trim();
+
             const match = txt.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+
             if (!match) return null;
 
             let day = Number(match[1]);
@@ -398,6 +448,7 @@
 
             if (typeof valor === "number" && Number.isFinite(valor)) {
                 const parsed = XLSX?.SSF?.parse_date_code ? XLSX.SSF.parse_date_code(valor) : null;
+
                 if (parsed && parsed.y && parsed.m && parsed.d) {
                     const date = new Date(parsed.y, parsed.m - 1, parsed.d);
                     if (!isNaN(date.getTime())) {
@@ -487,8 +538,11 @@
                 h2 = Math.imul(h2 ^ ch, 1597334677);
             }
 
-            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^
+                 Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+
+            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^
+                 Math.imul(h1 ^ (h1 >>> 13), 3266489909);
 
             const hash = 4294967296 * (2097151 & h2) + (h1 >>> 0);
             return `ID_${hash}`;
@@ -526,35 +580,32 @@
             }
         }
 
-        function normalizarFila(row, totalCols = TOTAL_COLUMNAS_ESPERADAS) {
-            return Array.from({ length: totalCols }, (_, c) => {
-                if (!row || row[c] === undefined || row[c] === null) return "";
-                return row[c];
-            });
-        }
-
         /************************************************************
          * SESIÓN / LOGIN
          ************************************************************/
         window.addEventListener("load", () => {
             const sesionGuardada = localStorage.getItem("validador_sesion_segura");
+
             if (!sesionGuardada) return;
 
             try {
                 const sesion = JSON.parse(sesionGuardada);
                 const ahora = Date.now();
 
-                if (
+                const sesionValida =
                     sesion &&
                     sesion.dni &&
                     sesion.token &&
                     /^\d{8}$/.test(String(sesion.dni)) &&
-                    (ahora - Number(sesion.timestamp)) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000)
-                ) {
+                    Number.isFinite(Number(sesion.timestamp)) &&
+                    (ahora - Number(sesion.timestamp)) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000);
+
+                if (sesionValida) {
                     iniciarApp(String(sesion.dni), String(sesion.token));
                 } else {
                     localStorage.removeItem("validador_sesion_segura");
                 }
+
             } catch {
                 localStorage.removeItem("validador_sesion_segura");
             }
@@ -569,7 +620,10 @@
         function mostrarErrorLogin() {
             loginErrorMsg.classList.remove("hidden");
             inputDNI.classList.add("animate-bounce");
-            setTimeout(() => inputDNI.classList.remove("animate-bounce"), 500);
+
+            setTimeout(() => {
+                inputDNI.classList.remove("animate-bounce");
+            }, 500);
         }
 
         async function procesarLogin() {
@@ -592,7 +646,9 @@
                     cache: "no-store"
                 });
 
-                if (!respuesta.ok) throw new Error("Respuesta HTTP inválida: " + respuesta.status);
+                if (!respuesta.ok) {
+                    throw new Error("Respuesta HTTP inválida: " + respuesta.status);
+                }
 
                 const datos = await respuesta.json();
 
@@ -604,12 +660,15 @@
                     }));
 
                     iniciarApp(dni, datos.token);
+
                 } else {
                     mostrarErrorLogin();
                 }
+
             } catch (error) {
                 console.error("Error en login:", error);
                 loginNetworkErrorMsg.classList.remove("hidden");
+
             } finally {
                 btnLogin.innerHTML = "Ingresar al Sistema";
                 btnLogin.disabled = false;
@@ -638,6 +697,7 @@
                     appContainer.classList.remove("opacity-0", "translate-y-4");
                     mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
                 }, 50);
+
             }, 250);
         }
 
@@ -656,35 +716,121 @@
         });
 
         /************************************************************
-         * CARGA DE ARCHIVO ROBUSTA
+         * CARGA DE ARCHIVO — ROBUSTO ANTIBLOQUEO DRAG & DROP
          ************************************************************/
         function resetEstadoDropZone() {
-            dragDepth = 0;
-            dropZone.classList.remove("border-blue-500", "bg-zinc-900");
+            dragCounter = 0;
+
+            if (!dropZone) return;
+
+            dropZone.classList.remove(
+                "border-blue-500",
+                "border-emerald-500",
+                "border-red-500",
+                "bg-zinc-900",
+                "bg-blue-950/20",
+                "bg-emerald-950/20",
+                "bg-red-950/20"
+            );
         }
 
         function activarEstadoDropZone() {
-            dropZone.classList.add("border-blue-500", "bg-zinc-900");
-            if (!archivoProcesandose) {
-                mostrarEstadoArchivo("📄 Suelta el archivo Excel aquí...", "info");
-            }
+            if (!dropZone || archivoProcesandose) return;
+
+            dropZone.classList.add("border-blue-500", "bg-blue-950/20");
+            mostrarEstadoArchivo("📄 Suelta el archivo Excel aquí...", "info");
         }
 
-        function abrirSelectorArchivo() {
+        function marcarDropZoneExito() {
+            if (!dropZone) return;
+
+            resetEstadoDropZone();
+            dropZone.classList.add("border-emerald-500", "bg-emerald-950/20");
+        }
+
+        function marcarDropZoneError() {
+            if (!dropZone) return;
+
+            resetEstadoDropZone();
+            dropZone.classList.add("border-red-500", "bg-red-950/20");
+        }
+
+        function obtenerArchivoDesdeEventoDrop(e) {
+            if (!e || !e.dataTransfer) return null;
+
+            const dt = e.dataTransfer;
+
+            if (dt.files && dt.files.length > 0) {
+                return dt.files[0];
+            }
+
+            if (dt.items && dt.items.length > 0) {
+                for (const item of dt.items) {
+                    if (item.kind === "file") {
+                        const file = item.getAsFile();
+                        if (file) return file;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function archivoExcelValido(file) {
+            if (!file) {
+                return {
+                    ok: false,
+                    msg: "No se recibió archivo."
+                };
+            }
+
+            const nombre = String(file.name || "").toLowerCase().trim();
+
+            const extensionValida =
+                nombre.endsWith(".xlsx") ||
+                nombre.endsWith(".xls");
+
+            if (!extensionValida) {
+                return {
+                    ok: false,
+                    msg: "Solo se permiten archivos Excel (.xlsx o .xls)."
+                };
+            }
+
+            if (!file.size || file.size <= 0) {
+                return {
+                    ok: false,
+                    msg: "El archivo está vacío o no se pudo leer correctamente."
+                };
+            }
+
+            return {
+                ok: true,
+                msg: "Archivo válido."
+            };
+        }
+
+        function manejarArchivoSeleccionado(file, origen = "manual") {
+            console.log(`📥 Archivo recibido por ${origen}:`, file);
+
             if (archivoProcesandose) {
                 mostrarEstadoArchivo("⏳ Ya se está procesando un archivo. Espera un momento...", "warning");
                 return;
             }
 
-            try {
-                resetEstadoDropZone();
-                fileInput.value = "";
-                mostrarEstadoArchivo("📂 Selecciona un archivo Excel...", "info");
-                fileInput.click();
-            } catch (error) {
-                console.error("Error abriendo selector:", error);
-                mostrarEstadoArchivo("❌ No se pudo abrir el selector.", "error");
+            const validacion = archivoExcelValido(file);
+
+            if (!validacion.ok) {
+                marcarDropZoneError();
+                alert("⚠️ " + validacion.msg);
+                mostrarEstadoArchivo("⚠️ " + validacion.msg, "warning");
+
+                if (fileInput) fileInput.value = "";
+                return;
             }
+
+            marcarDropZoneExito();
+            procesarArchivo(file);
         }
 
         ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
@@ -694,16 +840,11 @@
             }, false);
         });
 
-        dropZone.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            abrirSelectorArchivo();
-        });
-
         dropZone.addEventListener("dragenter", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dragDepth++;
+
+            dragCounter++;
             activarEstadoDropZone();
         });
 
@@ -717,13 +858,11 @@
             e.preventDefault();
             e.stopPropagation();
 
-            dragDepth = Math.max(0, dragDepth - 1);
+            dragCounter = Math.max(0, dragCounter - 1);
 
-            if (dragDepth === 0) {
+            if (dragCounter === 0 && !archivoProcesandose) {
                 resetEstadoDropZone();
-                if (!archivoProcesandose) {
-                    mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
-                }
+                mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
             }
         });
 
@@ -733,28 +872,21 @@
 
             resetEstadoDropZone();
 
-            if (archivoProcesandose) {
-                mostrarEstadoArchivo("⏳ Ya se está procesando un archivo. Espera un momento...", "warning");
+            const file = obtenerArchivoDesdeEventoDrop(e);
+
+            if (!file) {
+                console.warn("⚠️ Drop detectado, pero el navegador no entregó el archivo.");
+
+                mostrarEstadoArchivo(
+                    "⚠️ El navegador bloqueó el arrastre. Haz clic en la zona y selecciona el Excel manualmente.",
+                    "warning"
+                );
+
                 return;
             }
 
-            const files = e.dataTransfer && e.dataTransfer.files;
-
-            if (!files || files.length === 0) {
-                mostrarEstadoArchivo("⚠️ No se detectó archivo en el arrastre.", "warning");
-                return;
-            }
-
-            if (files.length > 1) {
-                mostrarEstadoArchivo("⚠️ Solo se procesará el primer archivo seleccionado.", "warning");
-            }
-
-            procesarArchivo(files[0]);
+            manejarArchivoSeleccionado(file, "arrastre");
         });
-
-        window.addEventListener("drop", () => resetEstadoDropZone());
-        window.addEventListener("dragend", () => resetEstadoDropZone());
-        window.addEventListener("blur", () => resetEstadoDropZone());
 
         fileInput.addEventListener("change", (e) => {
             e.preventDefault();
@@ -765,43 +897,57 @@
             const files = e.currentTarget.files;
 
             if (!files || files.length === 0) {
+                console.warn("⚠️ No se seleccionó archivo.");
                 mostrarEstadoArchivo("⚠️ No se seleccionó archivo.", "warning");
                 return;
             }
 
-            procesarArchivo(files[0]);
+            manejarArchivoSeleccionado(files[0], "selector nativo");
+        });
+
+        window.addEventListener("drop", () => {
+            if (!archivoProcesandose) {
+                resetEstadoDropZone();
+            }
+        });
+
+        window.addEventListener("dragend", () => {
+            if (!archivoProcesandose) {
+                resetEstadoDropZone();
+                mostrarEstadoArchivo("📂 Arrastra o selecciona un Excel.", "info");
+            }
+        });
+
+        window.addEventListener("blur", () => {
+            if (!archivoProcesandose) {
+                resetEstadoDropZone();
+            }
         });
 
         function procesarArchivo(file) {
             console.log("🚀 INICIO procesarArchivo:", file);
 
-            if (archivoProcesandose) return;
-            archivoProcesandose = true;
+            if (archivoProcesandose) {
+                console.warn("⏳ Ya existe un archivo en procesamiento.");
+                return;
+            }
 
+            archivoProcesandose = true;
             resetearResultados();
-            resetEstadoDropZone();
 
             try {
                 if (!file) {
-                    throw new Error("No se recibió archivo.");
+                    throw new Error("Archivo indefinido.");
                 }
 
                 if (!validarXLSXDisponible()) {
-                    throw new Error("La librería XLSX no está disponible.");
+                    throw new Error("La librería XLSX no está cargada. Revisa conexión, firewall o CDN.");
                 }
 
-                const nombre = String(file.name || "").toLowerCase().trim();
+                const validacion = archivoExcelValido(file);
 
-                if (!nombre.endsWith(".xlsx") && !nombre.endsWith(".xls")) {
-                    alert("⚠️ Solo se permiten archivos Excel (.xlsx o .xls).");
-                    mostrarEstadoArchivo("⚠️ Archivo no permitido. Usa .xlsx o .xls.", "warning");
-                    fileInput.value = "";
-                    archivoProcesandose = false;
-                    return;
-                }
-
-                if (file.size <= 0) {
-                    throw new Error("El archivo está vacío.");
+                if (!validacion.ok) {
+                    throw new Error(validacion.msg);
                 }
 
                 mostrarEstadoArchivo(`📄 Procesando archivo: ${file.name}`, "info");
@@ -809,12 +955,16 @@
                 const reader = new FileReader();
 
                 reader.onload = (event) => {
+                    console.log("📥 FileReader terminó correctamente.");
+
                     try {
                         if (!event.target || !event.target.result) {
                             throw new Error("FileReader no devolvió contenido.");
                         }
 
                         const data = new Uint8Array(event.target.result);
+
+                        console.log("📊 Leyendo Excel con XLSX...");
 
                         const workbook = XLSX.read(data, {
                             type: "array",
@@ -842,15 +992,27 @@
                         console.log("✅ Total filas detectadas:", filas.length);
                         console.log("✅ Primeras filas:", filas.slice(0, 5));
 
-                        mostrarEstadoArchivo(`✅ Archivo leído correctamente. Filas detectadas: ${filas.length}`, "success");
+                        mostrarEstadoArchivo(
+                            `✅ Archivo leído correctamente. Filas detectadas: ${filas.length}`,
+                            "success"
+                        );
 
                         procesarValidacion(filas, hoja);
 
                     } catch (error) {
                         console.error("💥 Error procesando Excel:", error);
-                        alert("⚠️ Error procesando el Excel. Revisa que el archivo no esté dañado y que tenga la estructura correcta.");
+
+                        marcarDropZoneError();
+
+                        alert(
+                            "⚠️ Error procesando el Excel. " +
+                            "Verifica que el archivo no esté dañado y que tenga la estructura correcta."
+                        );
+
                         mostrarEstadoArchivo("❌ Error procesando el Excel.", "error");
-                        fileInput.value = "";
+
+                        if (fileInput) fileInput.value = "";
+
                     } finally {
                         archivoProcesandose = false;
                     }
@@ -858,9 +1020,13 @@
 
                 reader.onerror = () => {
                     console.error("🚨 Error FileReader:", reader.error);
+
+                    marcarDropZoneError();
+
                     alert("⚠️ No se pudo leer el archivo seleccionado.");
                     mostrarEstadoArchivo("❌ No se pudo leer el archivo.", "error");
-                    fileInput.value = "";
+
+                    if (fileInput) fileInput.value = "";
                     archivoProcesandose = false;
                 };
 
@@ -868,9 +1034,13 @@
 
             } catch (error) {
                 console.error("❌ Error inicial procesando archivo:", error);
+
+                marcarDropZoneError();
+
                 alert("⚠️ " + (error.message || "No se pudo procesar el archivo."));
                 mostrarEstadoArchivo("❌ No se pudo procesar el archivo.", "error");
-                fileInput.value = "";
+
+                if (fileInput) fileInput.value = "";
                 archivoProcesandose = false;
             }
         }
@@ -887,7 +1057,10 @@
             let valorLimpio = limpiarTexto(valorCrudo);
 
             if (valorLimpio === "") {
-                return { valorFinal: null, error: "Celda vacía obligatoria." };
+                return {
+                    valorFinal: null,
+                    error: "Celda vacía obligatoria."
+                };
             }
 
             const homologacionesColumna = HOMOLOGACION_FORZADA[idx];
@@ -899,17 +1072,26 @@
             const catalogo = VALORES_PERMITIDOS[idx];
 
             if (!Array.isArray(catalogo)) {
-                return { valorFinal: null, error: "Catálogo interno no configurado." };
+                return {
+                    valorFinal: null,
+                    error: "Catálogo interno no configurado."
+                };
             }
 
             if (catalogo.includes(valorLimpio)) {
-                return { valorFinal: valorLimpio, error: null };
+                return {
+                    valorFinal: valorLimpio,
+                    error: null
+                };
             }
 
             const { mejorSimilitud, mejorCoincidencia } = encontrarMejorCoincidencia(valorLimpio, catalogo);
 
             if (mejorSimilitud >= UMBRAL_FUZZY) {
-                return { valorFinal: mejorCoincidencia, error: null };
+                return {
+                    valorFinal: mejorCoincidencia,
+                    error: null
+                };
             }
 
             const porcentajeFallo = Math.round(mejorSimilitud * 100);
@@ -928,7 +1110,7 @@
 
             if (!Array.isArray(filas) || filas.length < 5) {
                 alert("⚠️ El archivo no tiene suficientes datos. La información debe empezar en la fila 5.");
-                fileInput.value = "";
+                if (fileInput) fileInput.value = "";
                 mostrarEstadoArchivo("⚠️ Archivo sin suficientes filas.", "warning");
                 return;
             }
@@ -982,6 +1164,7 @@
                         col: columnaExcel(COL.FECHA),
                         msg: "Debe ser una fecha válida."
                     });
+
                     erroresEnEstaFila = true;
                 }
 
@@ -991,6 +1174,7 @@
                         col: columnaExcel(COL.ENTREGA),
                         msg: "Celda vacía obligatoria (Entrega)."
                     });
+
                     erroresEnEstaFila = true;
                 }
 
@@ -1003,7 +1187,9 @@
                             col: columnaExcel(idx),
                             msg: error
                         });
+
                         erroresEnEstaFila = true;
+
                     } else {
                         filaDatos[idx] = valorFinal;
                     }
@@ -1042,18 +1228,30 @@
                 validosParaSubir.push(objetoLimpio);
 
                 const linea = limpiarTexto(filaDatos[COL.LINEA]);
-                if (conteoLineasData[linea] !== undefined) conteoLineasData[linea]++;
+
+                if (conteoLineasData[linea] !== undefined) {
+                    conteoLineasData[linea]++;
+                }
 
                 const tipoDespacho = limpiarTexto(filaDatos[COL.REGION]);
-                if (conteoDespachoData[tipoDespacho] !== undefined) conteoDespachoData[tipoDespacho]++;
+
+                if (conteoDespachoData[tipoDespacho] !== undefined) {
+                    conteoDespachoData[tipoDespacho]++;
+                }
             }
 
             resultContainer.classList.remove("hidden");
 
             if (erroresBloqueantes.length > 0) {
                 renderErrores(erroresBloqueantes);
-                fileInput.value = "";
-                mostrarEstadoArchivo(`🚫 Se detectaron ${erroresBloqueantes.length} errores críticos.`, "error");
+
+                if (fileInput) fileInput.value = "";
+
+                mostrarEstadoArchivo(
+                    `🚫 Se detectaron ${erroresBloqueantes.length} errores críticos.`,
+                    "error"
+                );
+
                 return;
             }
 
@@ -1086,6 +1284,7 @@
 
         function renderAdvertencias(conteoVaciosPorColumna) {
             const entries = Object.entries(conteoVaciosPorColumna);
+
             if (entries.length === 0) return;
 
             warningSection.classList.remove("hidden");
@@ -1101,8 +1300,14 @@
         }
 
         function calcularColorScore(porcentaje) {
-            if (porcentaje >= 99.5) return ["text-emerald-500", "drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]"];
-            if (porcentaje >= 80) return ["text-amber-500", "drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]"];
+            if (porcentaje >= 99.5) {
+                return ["text-emerald-500", "drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]"];
+            }
+
+            if (porcentaje >= 80) {
+                return ["text-amber-500", "drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]"];
+            }
+
             return ["text-red-500", "drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]"];
         }
 
