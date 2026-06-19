@@ -45,6 +45,13 @@
             user-select: none;
             -webkit-user-select: none;
         }
+
+        .native-file-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
     </style>
 </head>
 
@@ -109,7 +116,7 @@
             </div>
         </div>
 
-        <!-- CARGA SEGURA SIN DRAG & DROP -->
+        <!-- CARGA NATIVA SEGURA -->
         <div id="drop-zone" class="relative border-2 border-dashed border-zinc-600 bg-black/60 rounded-xl p-10 text-center hover:border-blue-500 hover:bg-zinc-900/80 transition-all duration-300 group overflow-hidden">
             <div class="text-5xl mb-4 group-hover:scale-110 transition-transform drop-shadow-lg opacity-80 group-hover:opacity-100">
                 📄
@@ -120,16 +127,16 @@
             </p>
 
             <p class="text-zinc-400 text-sm mt-2">
-                Modo seguro activo: el arrastre fue desactivado para evitar bloqueos del navegador.
+                Modo estable: usa el botón inferior para evitar bloqueos del navegador.
             </p>
 
-            <button
-                type="button"
+            <label
+                for="file-input"
                 id="btn-file-fallback"
-                class="mt-5 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl text-sm transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)]"
+                class="native-file-button mt-5 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-xl text-sm transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] cursor-pointer"
             >
                 📂 Seleccionar archivo Excel
-            </button>
+            </label>
 
             <p id="file-status" class="text-zinc-500 text-sm mt-3 hidden"></p>
         </div>
@@ -321,7 +328,6 @@
         const btnLogout = document.getElementById("btn-logout");
         const fileInput = document.getElementById("file-input");
         const dropZone = document.getElementById("drop-zone");
-        const btnFileFallback = document.getElementById("btn-file-fallback");
         const fileStatus = document.getElementById("file-status");
 
         const resultContainer = document.getElementById("result-container");
@@ -453,7 +459,6 @@
                 archivoProcesandose = false;
                 timeoutProcesoArchivo = null;
 
-                if (btnFileFallback) btnFileFallback.disabled = false;
                 if (fileInput) fileInput.value = "";
 
                 mostrarEstadoArchivo(
@@ -471,8 +476,6 @@
                 clearTimeout(timeoutProcesoArchivo);
                 timeoutProcesoArchivo = null;
             }
-
-            if (btnFileFallback) btnFileFallback.disabled = false;
         }
 
         /************************************************************
@@ -523,11 +526,19 @@
 
             if (!match) return null;
 
-            let day = Number(match[1]);
-            let month = Number(match[2]);
+            let p1 = Number(match[1]);
+            let p2 = Number(match[2]);
             let year = Number(match[3]);
 
             if (year < 100) year += 2000;
+
+            let day = p1;
+            let month = p2;
+
+            if (p2 > 12 && p1 <= 12) {
+                month = p1;
+                day = p2;
+            }
 
             if (month < 1 || month > 12 || day < 1 || day > 31) return null;
 
@@ -817,7 +828,11 @@
         });
 
         /************************************************************
-         * CARGA SEGURA DE ARCHIVO
+         * CARGA NATIVA DE ARCHIVO
+         * IMPORTANTE:
+         * No usamos fileInput.click()
+         * No usamos drag & drop
+         * El selector se abre con label for="file-input"
          ************************************************************/
         function archivoExcelValido(file) {
             if (!file) {
@@ -836,43 +851,6 @@
 
             return { ok: true, msg: "Archivo válido." };
         }
-
-        function abrirSelectorArchivoSeguro() {
-            if (archivoProcesandose) {
-                mostrarEstadoArchivo("⏳ Ya se está procesando un archivo. Espera un momento...", "warning");
-                return;
-            }
-
-            try {
-                resetearResultados();
-
-                if (fileInput) {
-                    fileInput.value = "";
-                }
-
-                mostrarEstadoArchivo("📂 Selecciona un archivo Excel...", "info");
-                fileInput.click();
-
-            } catch (error) {
-                console.error("❌ Error abriendo selector:", error);
-                mostrarEstadoArchivo("❌ No se pudo abrir el selector de archivos.", "error");
-            }
-        }
-
-        btnFileFallback.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            abrirSelectorArchivoSeguro();
-        });
-
-        dropZone.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (e.target && e.target.id === "btn-file-fallback") return;
-
-            abrirSelectorArchivoSeguro();
-        });
 
         fileInput.addEventListener("change", async (e) => {
             e.preventDefault();
@@ -900,10 +878,6 @@
             }
 
             iniciarBloqueoProceso();
-
-            if (btnFileFallback) {
-                btnFileFallback.disabled = true;
-            }
 
             try {
                 resetearResultados();
@@ -1366,4 +1340,3 @@
     </script>
 </body>
 </html>
-``
