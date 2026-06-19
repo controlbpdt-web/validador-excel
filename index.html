@@ -88,7 +88,12 @@
         </div>
 
         <!-- Input file FUERA del drop-zone -->
-        <input type="file" id="file-input" class="hidden" accept=".xlsx,.xls" />
+        <input
+    id="file-input"
+    type="file"
+    accept=".xlsx,.xls"
+    style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;"
+/>
 
         <!-- RESULTADOS -->
         <div id="result-container" class="mt-8 hidden space-y-6">
@@ -232,6 +237,7 @@
         let usuarioActualDNI = "";
         let tokenSesionActual = "";
         let datosListosParaEnviar = [];
+        let archivoProcesandose = false;
 
         /************************************************************
          * DOM
@@ -604,12 +610,33 @@
          * CARGA DE ARCHIVO — VERSIÓN FINAL CORREGIDA
          ************************************************************/
         function abrirSelectorArchivo() {
-            console.log("🖱 Abriendo selector de archivo...");
-            mostrarEstadoArchivo("📂 Selecciona un archivo Excel...", "info");
 
-            // permite volver a elegir el mismo archivo
-            fileInput.value = "";
-            fileInput.click();
+            if (archivoProcesandose) return;
+
+            try {
+
+                fileInput.value = "";
+
+                mostrarEstadoArchivo(
+                    "📂 Selecciona un archivo Excel...",
+                    "info"
+                );
+
+                if (typeof fileInput.showPicker === "function") {
+                    fileInput.showPicker();
+                } else {
+                    fileInput.click();
+                }
+
+            } catch (error) {
+
+                console.error("Error abriendo selector", error);
+
+                mostrarEstadoArchivo(
+                    "❌ No se pudo abrir el selector.",
+                    "error"
+                );
+            }
         }
 
         // Evita que el navegador abra el archivo fuera de la app
@@ -1111,3 +1138,14 @@
     </script>
 </body>
 </html>
+
+
+<script>
+window.addEventListener("error",(event)=>{
+    console.error("ERROR GLOBAL:",event.error);
+});
+
+window.addEventListener("unhandledrejection",(event)=>{
+    console.error("PROMESA RECHAZADA:",event.reason);
+});
+</script>
