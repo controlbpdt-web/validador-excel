@@ -1,4 +1,4 @@
-F<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
@@ -192,7 +192,7 @@ F<!DOCTYPE html>
         /************************************************************
          * CONFIGURACIÓN
          ************************************************************/
-        const URL_GAS = "https://script.google.com/macros/s/AKfycby1VIKFue8ZBH_5B9AGkSy3PP_hYrgc1A9wQI1RuUiTY2qIiWc5X1_4EM7iSC-H0vqg/exec";
+        const URL_GAS = "https://script.google.com/macros/s/AKfycbx4D0jiXK93V5ihGhO8bVQR1oQsfRn-VT7MHtdarDLZi_cHku_rtCHCKPIuD9ZP-WFs/exec";
         const TIEMPO_SESION_HORAS = 8;
         const UMBRAL_FUZZY = 0.49;
 
@@ -221,7 +221,6 @@ F<!DOCTYPE html>
         const TOTAL_COLUMNAS_ESPERADAS = 19;
 
         let usuarioActualDNI = "";
-        let tokenSesionActual = "";
         let datosListosParaEnviar = [];
 
         /************************************************************
@@ -419,6 +418,9 @@ F<!DOCTYPE html>
 
         /************************************************************
          * SESIÓN / LOGIN
+         * NOTA: el backend ya no usa tokens. La sesión guarda solo el DNI
+         * (validado en su momento por el servidor) y una marca de tiempo
+         * local para expirar la sesión del lado del navegador.
          ************************************************************/
         window.onload = () => {
             const sesionGuardada = localStorage.getItem("validador_sesion_segura");
@@ -430,9 +432,9 @@ F<!DOCTYPE html>
 
                 if (
                     (ahora - sesion.timestamp) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000) &&
-                    sesion.token
+                    /^\d{8}$/.test(sesion.dni)
                 ) {
-                    iniciarApp(sesion.dni, sesion.token);
+                    iniciarApp(sesion.dni);
                 } else {
                     localStorage.removeItem("validador_sesion_segura");
                 }
@@ -466,14 +468,13 @@ F<!DOCTYPE html>
 
                 const datos = await respuesta.json();
 
-                if (datos.autorizado && datos.token) {
+                if (datos.autorizado) {
                     localStorage.setItem("validador_sesion_segura", JSON.stringify({
                         dni,
-                        token: datos.token,
                         timestamp: Date.now()
                     }));
 
-                    iniciarApp(dni, datos.token);
+                    iniciarApp(dni);
                 } else {
                     document.getElementById("login-error").classList.remove("hidden");
                     inputDNI.classList.add("animate-bounce");
@@ -488,9 +489,8 @@ F<!DOCTYPE html>
             }
         }
 
-        function iniciarApp(dniValidado, token) {
+        function iniciarApp(dniValidado) {
             usuarioActualDNI = dniValidado;
-            tokenSesionActual = token;
 
             const loginContainer = document.getElementById("login-container");
             const appContainer = document.getElementById("app-container");
@@ -875,7 +875,9 @@ F<!DOCTYPE html>
         }
 
         /************************************************************
-         * ENVÍO AL HISTÓRICO, CORREGIDO
+         * ENVÍO AL HISTÓRICO
+         * NOTA: el backend ya no usa tokens. Se envía el DNI directamente
+         * junto con las filas a guardar.
          ************************************************************/
         btnEnviar.addEventListener("click", async () => {
             if (!datosListosParaEnviar || datosListosParaEnviar.length === 0) {
@@ -883,8 +885,8 @@ F<!DOCTYPE html>
                 return;
             }
 
-            if (!tokenSesionActual) {
-                alert("🔒 Tu sesión no tiene token. Cierra sesión y vuelve a iniciar sesión.");
+            if (!usuarioActualDNI) {
+                alert("🔒 Tu sesión no es válida. Cierra sesión y vuelve a iniciar sesión.");
                 localStorage.removeItem("validador_sesion_segura");
                 location.reload();
                 return;
@@ -898,7 +900,7 @@ F<!DOCTYPE html>
             try {
                 const payload = {
                     action: "guardar_consolidado",
-                    token: tokenSesionActual,
+                    dni: usuarioActualDNI,
                     rows: datosListosParaEnviar
                 };
 
