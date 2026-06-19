@@ -16,6 +16,7 @@
         .svg-circle { transform: rotate(-90deg); transform-origin: 50% 50%; }
     </style>
 </head>
+
 <body class="bg-black min-h-screen p-6 font-sans text-zinc-100 selection:bg-blue-500/30 flex flex-col justify-center">
 
     <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-40 bg-blue-600/10 blur-[150px] pointer-events-none z-0"></div>
@@ -186,6 +187,8 @@
     </div>
 
     <script>
+        "use strict";
+
         /************************************************************
          * CONFIGURACIÓN
          ************************************************************/
@@ -205,6 +208,12 @@
             11: {
                 "ADIUM": "TECNOFARMA",
                 "ELEA PERU": "ELEA"
+            },
+            16: {
+                "RECOGE CLIENTE": "RECOJO CLIENTE",
+                "RECOGE EL CLIENTE": "RECOJO CLIENTE",
+                "RECOJO DEL CLIENTE": "RECOJO CLIENTE",
+                "RECOJO CLIENTES": "RECOJO CLIENTE"
             }
         };
 
@@ -212,6 +221,7 @@
         const TOTAL_COLUMNAS_ESPERADAS = 19;
 
         let usuarioActualDNI = "";
+        let tokenSesionActual = "";
         let datosListosParaEnviar = [];
 
         /************************************************************
@@ -298,7 +308,6 @@
             }
 
             if (typeof valor === "number" && Number.isFinite(valor)) {
-                // Excel serial date
                 const parsed = XLSX?.SSF?.parse_date_code ? XLSX.SSF.parse_date_code(valor) : null;
                 if (parsed && parsed.y && parsed.m && parsed.d) {
                     const date = new Date(parsed.y, parsed.m - 1, parsed.d);
@@ -314,10 +323,6 @@
             }
 
             return "";
-        }
-
-        function esFechaValida(valor) {
-            return normalizarFecha(valor) !== "";
         }
 
         function calcularSimilitud(s1, s2) {
@@ -358,7 +363,6 @@
             return (longerLength - costs[shorter.length]) / longerLength;
         }
 
-        // Huella más robusta que el hash anterior
         function generarHuellaDigital(textoFila, seed = 0) {
             let h1 = 0xdeadbeef ^ seed;
             let h2 = 0x41c6ce57 ^ seed;
@@ -390,7 +394,7 @@
             scoreText.textContent = "0%";
 
             scoreCircle.setAttribute("stroke-dasharray", "0, 100");
-            scoreCircle.className = "transition-all duration-1000 ease-out";
+            scoreCircle.setAttribute("class", "transition-all duration-1000 ease-out");
 
             datosListosParaEnviar = [];
         }
@@ -424,8 +428,11 @@
                 const sesion = JSON.parse(sesionGuardada);
                 const ahora = Date.now();
 
-                if ((ahora - sesion.timestamp) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000)) {
-                    iniciarApp(sesion.dni);
+                if (
+                    (ahora - sesion.timestamp) < (TIEMPO_SESION_HORAS * 60 * 60 * 1000) &&
+                    sesion.token
+                ) {
+                    iniciarApp(sesion.dni, sesion.token);
                 } else {
                     localStorage.removeItem("validador_sesion_segura");
                 }
@@ -451,7 +458,6 @@
             btnLogin.disabled = true;
 
             try {
-                // Mantengo GET para no romper tu Apps Script actual
                 const respuesta = await fetch(`${URL_GAS}?action=login&dni=${encodeURIComponent(dni)}`, {
                     method: "GET"
                 });
@@ -460,12 +466,14 @@
 
                 const datos = await respuesta.json();
 
-                if (datos.autorizado) {
+                if (datos.autorizado && datos.token) {
                     localStorage.setItem("validador_sesion_segura", JSON.stringify({
                         dni,
+                        token: datos.token,
                         timestamp: Date.now()
                     }));
-                    iniciarApp(dni);
+
+                    iniciarApp(dni, datos.token);
                 } else {
                     document.getElementById("login-error").classList.remove("hidden");
                     inputDNI.classList.add("animate-bounce");
@@ -480,8 +488,9 @@
             }
         }
 
-        function iniciarApp(dniValidado) {
+        function iniciarApp(dniValidado, token) {
             usuarioActualDNI = dniValidado;
+            tokenSesionActual = token;
 
             const loginContainer = document.getElementById("login-container");
             const appContainer = document.getElementById("app-container");
@@ -503,6 +512,7 @@
         }
 
         btnLogin.addEventListener("click", procesarLogin);
+
         inputDNI.addEventListener("keypress", (e) => {
             if (e.key === "Enter") {
                 e.preventDefault();
@@ -536,7 +546,6 @@
 
             if (e.dataTransfer.files.length > 0) {
                 const file = e.dataTransfer.files[0];
-                fileInput.files = e.dataTransfer.files;
                 procesarArchivo(file);
             }
         });
@@ -629,7 +638,6 @@
             for (let i = 4; i < filas.length; i++) {
                 let filaDatos = normalizarFila(filas[i]);
 
-                // Preserva visualización formateada en columnas D y G si existe
                 if (hoja) {
                     const cellD = hoja[XLSX.utils.encode_cell({ r: i, c: 3 })];
                     const cellG = hoja[XLSX.utils.encode_cell({ r: i, c: 6 })];
@@ -638,11 +646,9 @@
                     if (cellG && cellG.w !== undefined) filaDatos[6] = cellG.w;
                 }
 
-                // Omite filas totalmente vacías
                 const filaVacia = filaDatos.every(cell => String(cell ?? "").trim() === "");
                 if (filaVacia) continue;
 
-                // Mantengo tu lógica: si C y E están vacías, se omite la fila
                 const valC = limpiarTexto(filaDatos[2]);
                 const valE = limpiarTexto(filaDatos[4]);
                 if (valC === "" && valE === "") continue;
@@ -650,7 +656,6 @@
                 const numFilaVisual = i + 1;
                 let erroresEnEstaFila = false;
 
-                // Validación fecha en columna A
                 const fechaNormalizada = normalizarFecha(filaDatos[0]);
                 filaDatos[0] = fechaNormalizada;
 
@@ -663,7 +668,6 @@
                     erroresEnEstaFila = true;
                 }
 
-                // Validación obligatoria en C (Entrega)
                 if (limpiarTexto(filaDatos[2]) === "") {
                     erroresBloqueantes.push({
                         fila: numFilaVisual,
@@ -673,7 +677,6 @@
                     erroresEnEstaFila = true;
                 }
 
-                // Validaciones por catálogo permitido
                 Object.keys(VALORES_PERMITIDOS).forEach(idxStr => {
                     const idx = Number(idxStr);
                     const valorCrudo = filaDatos[idx];
@@ -689,19 +692,17 @@
                         return;
                     }
 
-                    // Homologación forzada
                     if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
                         valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio];
                         filaDatos[idx] = valorLimpio;
                     }
 
-                    // Si no coincide exactamente, aplicar fuzzy
                     if (!VALORES_PERMITIDOS[idx].includes(valorLimpio)) {
                         let mejorSimilitud = 0;
                         let mejorCoincidencia = "";
 
                         VALORES_PERMITIDOS[idx].forEach(permitido => {
-                            const similitud = calcularSimilitud(valorLimpio, permitido); // <-- corregido
+                            const similitud = calcularSimilitud(valorLimpio, permitido);
                             if (similitud > mejorSimilitud) {
                                 mejorSimilitud = similitud;
                                 mejorCoincidencia = permitido;
@@ -725,7 +726,6 @@
                 });
 
                 if (!erroresEnEstaFila) {
-                    // Advertencias por vacíos
                     COLS_ADVERTENCIA.forEach(idx => {
                         if (String(filaDatos[idx] ?? "").trim() === "") {
                             const nombreEncabezado = encabezadosKeys[idx]
@@ -817,7 +817,6 @@
 
             totalFilas.textContent = String(validosParaSubir.length);
 
-            // Score de calidad
             const totalCeldasEsperadas = validosParaSubir.length * COLS_ADVERTENCIA.length;
             let porcentaje = 100;
 
@@ -829,21 +828,22 @@
             const displayPorcentaje = porcentaje === 100 ? "100" : porcentaje.toFixed(1);
             scoreText.textContent = `${displayPorcentaje}%`;
 
-            scoreCircle.className = "transition-all duration-1000 ease-out";
+            let clasesScore = "transition-all duration-1000 ease-out ";
 
             if (porcentaje >= 99.5) {
-                scoreCircle.classList.add("text-emerald-500", "drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]");
+                clasesScore += "text-emerald-500 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]";
             } else if (porcentaje >= 80) {
-                scoreCircle.classList.add("text-amber-500", "drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]");
+                clasesScore += "text-amber-500 drop-shadow-[0_0_10px_rgba(245,158,11,0.5)]";
             } else {
-                scoreCircle.classList.add("text-red-500", "drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]");
+                clasesScore += "text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]";
             }
+
+            scoreCircle.setAttribute("class", clasesScore);
 
             setTimeout(() => {
                 scoreCircle.setAttribute("stroke-dasharray", `${porcentaje}, 100`);
             }, 150);
 
-            // Resumen despacho
             const despachoHtml = Object.entries(conteoDespachoData)
                 .filter(([, cantidad]) => cantidad > 0)
                 .map(([despacho, cantidad]) => `
@@ -857,7 +857,6 @@
 
             conteoDespacho.innerHTML = despachoHtml || `<p class="text-zinc-500 italic text-sm">Sin datos</p>`;
 
-            // Resumen líneas
             const lineasHtml = Object.entries(conteoLineasData)
                 .filter(([, cantidad]) => cantidad > 0)
                 .map(([linea, cantidad]) => `
@@ -881,6 +880,13 @@
                 return;
             }
 
+            if (!tokenSesionActual) {
+                alert("🔒 Tu sesión no tiene token. Cierra sesión y vuelve a iniciar sesión.");
+                localStorage.removeItem("validador_sesion_segura");
+                location.reload();
+                return;
+            }
+
             const textoOriginal = btnEnviar.innerHTML;
 
             btnEnviar.innerHTML = `<span>⏳</span> Conectando con el Histórico Maestro...`;
@@ -892,7 +898,10 @@
                     headers: {
                         "Content-Type": "text/plain;charset=utf-8"
                     },
-                    body: JSON.stringify(datosListosParaEnviar)
+                    body: JSON.stringify({
+                        token: tokenSesionActual,
+                        rows: datosListosParaEnviar
+                    })
                 });
 
                 if (!respuesta.ok) {
@@ -914,11 +923,18 @@
                         alert(`¡Proceso completado con éxito! Se cargaron ${resultado.insertados || 0} nuevos registros en la hoja BD_OLT.`);
                         location.reload();
                     }, 1000);
+
+                } else if (resultado.status === "forbidden") {
+                    alert(`🔒 Tu sesión ya no es válida: ${resultado.message || "Vuelve a iniciar sesión."}`);
+                    localStorage.removeItem("validador_sesion_segura");
+                    location.reload();
+
                 } else {
                     alert(`❌ Denegado por el servidor: ${resultado.message || "Respuesta no válida del backend."}`);
                     btnEnviar.innerHTML = textoOriginal;
                     btnEnviar.disabled = false;
                 }
+
             } catch (error) {
                 console.error("Error de envío:", error);
                 alert("⚠️ Error de red: no se obtuvo respuesta del servidor de Google. Revisa tu conexión a internet.");
