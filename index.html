@@ -144,7 +144,7 @@
 
     <script>
         // ====================================================================
-        // CONFIGURACIÓN BASE (ENLACE ENLACE OFICIAL)
+        // CONFIGURACIÓN BASE (ENLACE OFICIAL FIJO)
         // ====================================================================
         const URL_GAS = "https://script.google.com/macros/s/AKfycbyc49q_OyUVzjJsIZIC-RQK-nJWU2uYHmSIxePm8_aJ_GTLsvGY6fq1EQglN_gfeXVO/exec";
         
@@ -344,7 +344,7 @@
         }
 
         // ====================================================================
-        // VALIDACIÓN PRINCIPAL
+        // VALIDACIÓN MAESTRA PRINCIPAL
         // ====================================================================
         function procesarValidacion(filas, hoja) {
             let erroresBloqueantes = [];
@@ -367,10 +367,8 @@
                 return;
             }
 
-            // CORRECCIÓN DE FILAS: Encabezados mapeados en Fila 4 (índice 3)
             const encabezadosKeys = filas[3]; 
 
-            // Los datos se procesan estrictamente a partir de la Fila 5 (índice 4)
             for (let i = 4; i < filas.length; i++) {
                 let filaDatos = [...filas[i]]; 
 
@@ -419,9 +417,10 @@
                         return; 
                     }
 
+                    // 🛠️ CORRECCIÓN INTEGRADA: Actualiza correctamente 'valorLimpio' para el validador
                     if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
-                        valorLinter = HOMOLOGACION_FORZADA[idx][valorLimpio];
-                        filaDatos[idx] = valorLinter; 
+                        valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio]; 
+                        filaDatos[idx] = valorLimpio; 
                     }
 
                     if (!VALORES_PERMITIDOS[idx].includes(valorLimpio)) {
@@ -433,6 +432,7 @@
 
                         if (mejorSimilitud >= 0.49) {
                             filaDatos[idx] = mejorCoincidencia; 
+                            valorLimpio = mejorCoincidencia;
                         } else {
                             let porcentajeFallo = Math.round(mejorSimilitud * 100);
                             let mensaje = `Valor inválido: "${valorCrudo}". Similitud más alta: ${porcentajeFallo}%`;
@@ -550,7 +550,7 @@
         }
 
         // ====================================================================
-        // ENVÍO AL BACKEND
+        // MOTOR DE ENVÍO TRANSACCIONAL AL BACKEND
         // ====================================================================
         document.getElementById('btn-enviar').onclick = () => {
             if (datosListosParaEnviar.length === 0) return;
