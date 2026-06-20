@@ -337,7 +337,10 @@
             reader.onload = (e) => {
                 const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
                 const hoja = workbook.Sheets[workbook.SheetNames[0]];
-                const dataPlana = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "", raw: true });
+                
+                // 🚨 CORRECCIÓN CRÍTICA: blankrows: true obliga al sistema a no saltarse las filas vacías de arriba.
+                // Así tu Fila 4 siempre será la Fila 4 para el código (índice 3).
+                const dataPlana = XLSX.utils.sheet_to_json(hoja, { header: 1, defval: "", blankrows: true, raw: true });
                 procesarValidacion(dataPlana, hoja);
             };
             reader.readAsArrayBuffer(file);
@@ -417,7 +420,6 @@
                         return; 
                     }
 
-                    // 🛠️ CORRECCIÓN INTEGRADA: Actualiza correctamente 'valorLimpio' para el validador
                     if (HOMOLOGACION_FORZADA[idx] && HOMOLOGACION_FORZADA[idx][valorLimpio]) {
                         valorLimpio = HOMOLOGACION_FORZADA[idx][valorLimpio]; 
                         filaDatos[idx] = valorLimpio; 
